@@ -1,0 +1,8 @@
+defaults:
+  - sweep: lr
+  - _self_
+
+hydra:
+  run:
+    dir: outputs/hydra_sweeps/${now:%Y%m%d_%H%M%S}
+

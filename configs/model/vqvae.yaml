@@ -1,0 +1,7 @@
+name: vqvae
+params:
+  hidden_dim: 64
+  embedding_dim: 32
+  num_embeddings: 128
+  commitment_cost: 0.25
+

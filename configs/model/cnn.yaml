@@ -1,0 +1,5 @@
+name: cnn
+params:
+  channels: [32, 64]
+  dropout: 0.1
+

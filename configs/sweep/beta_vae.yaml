@@ -1,0 +1,10 @@
+name: beta_vae_sweep
+experiment: autoencoder_research
+train_script: train.py
+stop_on_failure: true
+parameters:
+  loss.beta:
+    - 0.25
+    - 1.0
+    - 4.0
+

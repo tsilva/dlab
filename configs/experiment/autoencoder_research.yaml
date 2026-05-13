@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: vae
+  - override /optimizer: adam
+
+task: vae
+run:
+  study: autoencoder-research
+dataset:
+  normalize: false
+loss:
+  name: mse
+  beta: 1.0

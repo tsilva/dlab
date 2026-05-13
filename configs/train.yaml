@@ -1,0 +1,56 @@
+defaults:
+  - dataset: mnist
+  - model: mlp
+  - optimizer: adam
+  - trainer: default
+  - _self_
+  - experiment: null
+
+experiment_name: null
+seed: 1337
+task: classification
+
+run:
+  study: baseline
+  group: null
+  sweep_name: null
+  sweep_index: null
+
+paths:
+  outputs_dir: outputs
+  reports_dir: reports
+
+loss:
+  name: cross_entropy
+  beta: 1.0
+
+checkpoint:
+  monitor: val/loss
+  mode: min
+  save_top_k: 1
+
+wandb:
+  enabled: true
+  project: dlab
+  entity: null
+  mode: online
+  log_model: false
+
+litlogger:
+  enabled: false
+  root_dir: outputs/litlogger
+  teamspace: null
+  log_model: false
+  save_logs: true
+
+reports:
+  enabled: true
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: outputs/hydra/${now:%Y%m%d_%H%M%S}
+  sweep:
+    dir: outputs/hydra_multirun
+    subdir: ${hydra.job.num}

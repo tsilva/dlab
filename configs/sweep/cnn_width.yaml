@@ -1,0 +1,10 @@
+name: cnn_width_sweep
+experiment: mnist_cnn
+train_script: train.py
+stop_on_failure: true
+parameters:
+  model.params.channels:
+    - [16, 32]
+    - [32, 64]
+    - [64, 128]
+

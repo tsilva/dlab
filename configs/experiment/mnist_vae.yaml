@@ -1,0 +1,18 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: vae
+  - override /optimizer: adam
+
+task: vae
+run:
+  study: baseline
+dataset:
+  normalize: false
+loss:
+  name: mse
+  beta: 1.0
+model:
+  params:
+    latent_dim: 16
+    hidden_dims: [512, 256]

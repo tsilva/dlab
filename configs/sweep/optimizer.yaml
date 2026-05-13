@@ -1,0 +1,10 @@
+name: optimizer_sweep
+experiment: optimization_optimizer
+train_script: train.py
+stop_on_failure: true
+parameters:
+  optimizer:
+    - adam
+    - adamw
+    - sgd
+

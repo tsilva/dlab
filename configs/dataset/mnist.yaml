@@ -1,0 +1,8 @@
+name: mnist
+data_dir: datasets
+batch_size: 64
+num_workers: 4
+val_split: 0.1
+normalize: true
+download: true
+pin_memory: null

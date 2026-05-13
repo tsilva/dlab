@@ -1,0 +1,5 @@
+name: autoencoder
+params:
+  latent_dim: 32
+  hidden_dims: [512, 256]
+

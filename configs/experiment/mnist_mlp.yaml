@@ -1,0 +1,16 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: mlp
+  - override /optimizer: adam
+
+task: classification
+run:
+  study: baseline
+model:
+  params:
+    hidden_dim: 256
+    num_layers: 2
+    dropout: 0.1
+optimizer:
+  lr: 0.001

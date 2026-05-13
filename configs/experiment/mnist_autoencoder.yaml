@@ -1,0 +1,17 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: autoencoder
+  - override /optimizer: adam
+
+task: reconstruction
+run:
+  study: baseline
+dataset:
+  normalize: false
+loss:
+  name: mse
+model:
+  params:
+    latent_dim: 32
+    hidden_dims: [512, 256]

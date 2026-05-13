@@ -1,0 +1,5 @@
+name: vae
+params:
+  latent_dim: 16
+  hidden_dims: [512, 256]
+

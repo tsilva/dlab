@@ -1,0 +1,10 @@
+name: cnn_depth_sweep
+experiment: cnn_depth
+train_script: train.py
+stop_on_failure: true
+parameters:
+  model.params.channels:
+    - [32]
+    - [32, 64]
+    - [32, 64, 128]
+

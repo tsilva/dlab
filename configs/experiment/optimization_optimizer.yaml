@@ -1,0 +1,11 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: mlp
+  - override /optimizer: adam
+
+task: classification
+run:
+  study: optimizer-comparison
+trainer:
+  max_epochs: 3

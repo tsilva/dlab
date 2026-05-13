@@ -1,0 +1,73 @@
+# Python / uv
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.tox/
+.nox/
+.hypothesis/
+.coverage
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
+.dmypy.json
+.pytype/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local datasets and generated experiment outputs
+datasets/*
+!datasets/.gitkeep
+
+outputs/*
+!outputs/.gitkeep
+
+# Experiment trackers / logs
+*.log
+wandb/
+lightning_logs/
+mlruns/
+outputs/litlogger/
+
+# Local scratch/cache
+.cache/
+tmp/
+temp/
+
+# Model artifacts
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+
+# Profiling artifacts
+*.prof
+*.trace
+*.pstats
+
+# Generated reports; keep curated examples/templates.
+reports/*
+!reports/example_report.md
+
+# OS / editor noise
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+.idea/
+.vscode/

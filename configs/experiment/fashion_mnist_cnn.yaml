@@ -1,0 +1,13 @@
+# @package _global_
+defaults:
+  - override /dataset: fashion_mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+run:
+  study: baseline
+model:
+  params:
+    channels: [32, 64]
+    dropout: 0.1

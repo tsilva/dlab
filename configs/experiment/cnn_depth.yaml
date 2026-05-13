@@ -1,0 +1,11 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+run:
+  study: cnn-depth
+trainer:
+  max_epochs: 5

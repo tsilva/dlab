@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+  - override /dataset: cifar10
+  - override /model: resnet18
+  - override /optimizer: adamw
+
+task: classification
+run:
+  study: baseline
+trainer:
+  max_epochs: 20
+optimizer:
+  lr: 0.0003
+  weight_decay: 0.01
