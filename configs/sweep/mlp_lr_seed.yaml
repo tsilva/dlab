@@ -1,0 +1,25 @@
+# @package _global_
+name: mlp_lr_seed_sweep
+experiment: mnist_mlp_research
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_lr_seed
+  question: Which MNIST MLP learning rate is robust across random seeds?
+  hypothesis: The best single-seed learning rate should remain competitive across seeds, but seed variance may change the ranking between close candidates.
+  expected_pattern: Validation loss should stay lowest on average for the useful LR range, with small but visible seed-to-seed variance.
+  controlled_variables: [dataset, model_architecture, optimizer, batch_size]
+  changed_variables: [optimizer.lr, seed]
+  tags: [roadmap, optimization, learning-rate, seed-variance]
+parameters:
+  optimizer:
+    lr:
+      - 0.003
+      - 0.001
+      - 0.0003
+      - 0.0001
+  seed:
+    - 1
+    - 2
+    - 3

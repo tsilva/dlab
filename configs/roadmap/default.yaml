@@ -3,7 +3,9 @@ stages:
     goal: Learn how LR, width, depth, dropout, batch size, and seed affect MNIST MLPs.
     studies:
       - mlp_lr
+      - mlp_lr_seed
       - mlp_arch
+      - mlp_arch_confirm
       - mlp_regularization
       - mlp_seed
 

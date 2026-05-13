@@ -1,0 +1,32 @@
+# @package _global_
+name: mlp_arch_confirm_sweep
+experiment: mnist_mlp_research
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_arch_confirm
+  question: Which promising MNIST MLP architecture is robust across random seeds?
+  hypothesis: The shallow 256-512 width models from the discovery sweep should remain competitive, while seed variance may decide whether dropout helps.
+  expected_pattern: Validation loss should cluster tightly for shallow wide models, with dropout effects smaller than architecture effects.
+  controlled_variables: [dataset, optimizer, learning_rate, batch_size]
+  changed_variables: [model.params.hidden_dim, model.params.num_layers, model.params.dropout, seed]
+  tags: [roadmap, capacity, architecture, seed-variance, confirmation]
+parameters:
+  optimizer:
+    lr:
+      - 0.0003
+  model:
+    params:
+      hidden_dim:
+        - 256
+        - 512
+      num_layers:
+        - 1
+      dropout:
+        - 0.0
+        - 0.1
+  seed:
+    - 1
+    - 2
+    - 3

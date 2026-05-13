@@ -31,12 +31,12 @@ def test_build_wandb_sweep_config_includes_hydra_parameters_and_study_metadata()
 
     assert sweep_config["program"] == "train.py"
     assert sweep_config["method"] == "grid"
-    assert sweep_config["parameters"]["experiment"] == {"value": "mnist_mlp_research"}
+    assert sweep_config["parameters"]["experiment"] == {"value": "'mnist_mlp_research'"}
     assert sweep_config["parameters"]["wandb.enabled"] == {"value": True}
-    assert sweep_config["parameters"]["wandb.project"] == {"value": "dlab"}
+    assert sweep_config["parameters"]["wandb.project"] == {"value": "'dlab'"}
     assert sweep_config["parameters"]["optimizer.lr"] == {"values": [0.001, 0.0003]}
-    assert sweep_config["parameters"]["run.stage"] == {"value": "01_mlp_basics"}
-    assert sweep_config["parameters"]["run.study"] == {"value": "mlp_lr"}
+    assert sweep_config["parameters"]["run.stage"] == {"value": "'01_mlp_basics'"}
+    assert sweep_config["parameters"]["run.study"] == {"value": "'mlp_lr'"}
     assert sweep_config["parameters"]["run.tags"] == {"value": ["roadmap", "optimization"]}
 
 
