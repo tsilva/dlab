@@ -1,0 +1,30 @@
+# @package _global_
+name: mlp_seed_sweep
+experiment: mnist_mlp_research
+train_script: train.py
+stop_on_failure: true
+parameters:
+  model:
+    params:
+      hidden_dim:
+        - 256
+      num_layers:
+        - 2
+      dropout:
+        - 0.1
+  optimizer:
+    name:
+      - adam
+    lr:
+      - 0.001
+    weight_decay:
+      - 0.0
+  dataset:
+    batch_size:
+      - 64
+  seed:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5

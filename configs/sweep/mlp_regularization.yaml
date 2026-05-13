@@ -1,0 +1,32 @@
+# @package _global_
+name: mlp_regularization_sweep
+experiment: mnist_mlp_research
+train_script: train.py
+stop_on_failure: true
+parameters:
+  model:
+    params:
+      hidden_dim:
+        - 256
+      num_layers:
+        - 2
+      dropout:
+        - 0.0
+        - 0.05
+        - 0.1
+        - 0.2
+        - 0.3
+  optimizer:
+    name:
+      - adam
+      - adamw
+    lr:
+      - 0.001
+    weight_decay:
+      - 0.0
+      - 0.01
+  dataset:
+    batch_size:
+      - 64
+      - 128
+      - 256

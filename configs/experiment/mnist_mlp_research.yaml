@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: mlp
+  - override /optimizer: adam
+
+task: classification
+run:
+  study: mlp-research
+trainer:
+  max_epochs: 10
+wandb:
+  enabled: false
+

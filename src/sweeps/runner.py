@@ -17,7 +17,10 @@ def expand_grid(parameters: Mapping[str, list[Any]]) -> list[dict[str, Any]]:
 
 
 def run_sweep(cfg: DictConfig) -> list[int]:
-    params = OmegaConf.to_container(cfg.parameters, resolve=True)
+    raw_params = OmegaConf.to_container(cfg.parameters, resolve=True)
+    if not isinstance(raw_params, Mapping):
+        raise TypeError("Sweep parameters must be a mapping.")
+    params = flatten_parameter_grid(raw_params)
     commands = []
     for index, combo in enumerate(expand_grid(params)):
         overrides = [f"{key}={_format_override_value(value)}" for key, value in combo.items()]
@@ -39,6 +42,19 @@ def run_sweep(cfg: DictConfig) -> list[int]:
         if completed.returncode != 0 and cfg.get("stop_on_failure", True):
             break
     return exit_codes
+
+
+def flatten_parameter_grid(parameters: Mapping[str, Any], prefix: str = "") -> dict[str, list[Any]]:
+    flat: dict[str, list[Any]] = {}
+    for key, value in parameters.items():
+        full_key = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, Mapping):
+            flat.update(flatten_parameter_grid(value, full_key))
+            continue
+        if not isinstance(value, list):
+            raise TypeError(f"Sweep parameter '{full_key}' must be a list.")
+        flat[full_key] = value
+    return flat
 
 
 def _format_override_value(value: Any) -> str:

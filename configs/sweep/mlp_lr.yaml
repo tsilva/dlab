@@ -1,0 +1,12 @@
+# @package _global_
+name: mlp_lr_sweep
+experiment: mnist_mlp_research
+train_script: train.py
+stop_on_failure: true
+parameters:
+  optimizer:
+    lr:
+      - 0.003
+      - 0.001
+      - 0.0003
+      - 0.0001
