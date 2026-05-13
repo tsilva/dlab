@@ -3,6 +3,14 @@ name: latent_size_sweep
 experiment: autoencoder_research
 train_script: train.py
 stop_on_failure: true
+run:
+  study: latent_size
+  question: How does latent dimension affect reconstruction quality?
+  hypothesis: Larger latent spaces should reconstruct better until capacity stops being the bottleneck.
+  expected_pattern: Reconstruction loss should improve with latent size and then saturate.
+  controlled_variables: [dataset, model_family, optimizer, learning_rate, batch_size, seed]
+  changed_variables: [model.params.latent_dim]
+  tags: [autoencoder, representation]
 parameters:
   model.params.latent_dim:
     - 4

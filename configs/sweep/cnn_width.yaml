@@ -3,6 +3,15 @@ name: cnn_width_sweep
 experiment: mnist_cnn
 train_script: train.py
 stop_on_failure: true
+run:
+  stage: 02_cnn_inductive_bias
+  study: cnn_width
+  question: How does CNN channel width affect MNIST performance and parameter efficiency?
+  hypothesis: Wider CNNs should improve accuracy until MNIST saturates.
+  expected_pattern: Validation accuracy should saturate quickly while parameter count keeps increasing.
+  controlled_variables: [dataset, model_depth, optimizer, learning_rate, batch_size, seed]
+  changed_variables: [model.params.channels]
+  tags: [roadmap, cnn, width]
 parameters:
   model.params.channels:
     - [16, 32]

@@ -6,7 +6,10 @@ defaults:
 
 task: classification
 run:
+  stage: 03_dataset_difficulty
   study: baseline
+  goal: Establish a CIFAR-10 baseline on a standard ResNet-style model.
+  tags: [baseline, resnet, cifar10]
 trainer:
   max_epochs: 20
 optimizer:

@@ -7,6 +7,8 @@ defaults:
 task: vae
 run:
   study: baseline
+  goal: Establish a VAE reconstruction and latent-space baseline on MNIST.
+  tags: [baseline, vae, mnist]
 dataset:
   normalize: false
 loss:

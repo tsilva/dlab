@@ -3,6 +3,15 @@ name: mlp_arch_sweep
 experiment: mnist_mlp_research
 train_script: train.py
 stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_arch
+  question: How do width, depth, and dropout change MNIST MLP capacity and overfitting?
+  hypothesis: More capacity should help until optimization or regularization becomes the limiting factor.
+  expected_pattern: Wider and moderately deeper models should improve validation loss, with dropout helping larger models.
+  controlled_variables: [dataset, optimizer, learning_rate, batch_size, seed]
+  changed_variables: [model.params.hidden_dim, model.params.num_layers, model.params.dropout]
+  tags: [roadmap, capacity, architecture]
 parameters:
   optimizer:
     lr:

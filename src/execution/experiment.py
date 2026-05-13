@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,10 +44,10 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     from src.utils.naming import resolve_run_identity
     from src.utils.reports import write_experiment_report
     from src.utils.seed import seed_everything
+    from src.utils.wandb import log_wandb_post_run, parameter_count, wandb_notes, wandb_tags
 
     configure_torch_runtime(cfg)
     seed_everything(int(cfg.seed), bool(cfg.trainer.get("deterministic", True)))
-
 
     run_identity = resolve_run_identity(cfg)
     cfg.experiment_name = run_identity.name
@@ -55,6 +56,7 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     datamodule = build_datamodule(cfg.dataset, seed=int(cfg.seed))
     model = build_model(cfg.model, datamodule.info)
     lit_module = ResearchLitModule(model, cfg)
+    model_summary = parameter_count(model)
 
     run_dir = Path(cfg.paths.outputs_dir) / cfg.experiment_name
     checkpoint_dir = run_dir / "checkpoints"
@@ -88,8 +90,19 @@ def run_experiment(cfg: DictConfig) -> RunResult:
                 log_model=cfg.wandb.log_model,
                 config=config_to_dict(cfg),
                 mode=cfg.wandb.get("mode", "online"),
+                job_type=cfg.wandb.get("job_type", "train"),
+                tags=wandb_tags(cfg),
+                notes=wandb_notes(cfg),
             )
         )
+        if cfg.wandb.get("log_code", False):
+            loggers[-1].experiment.log_code(".")
+        if cfg.wandb.get("watch", {}).get("enabled", False):
+            loggers[-1].watch(
+                model,
+                log=cfg.wandb.watch.get("log", "gradients"),
+                log_freq=int(cfg.wandb.watch.get("log_freq", 100)),
+            )
     if cfg.litlogger.enabled:
         from src.utils.loggers import build_litlogger
 
@@ -117,16 +130,30 @@ def run_experiment(cfg: DictConfig) -> RunResult:
         enable_checkpointing=bool(cfg.trainer.enable_checkpointing),
         fast_dev_run=bool(cfg.trainer.get("fast_dev_run", False)),
     )
+    started_at = time.perf_counter()
     trainer.fit(lit_module, datamodule=datamodule)
+    elapsed_seconds = time.perf_counter() - started_at
 
     metrics = {
         key: value.item() if hasattr(value, "item") else value
         for key, value in trainer.callback_metrics.items()
     }
+    metrics.update(model_summary)
+    metrics["runtime/seconds"] = elapsed_seconds
     report_path = None
     if cfg.reports.enabled:
         report_path = str(write_experiment_report(cfg, metrics, run_dir, cfg.paths.reports_dir))
         print(f"Wrote report: {report_path}")
+
+    log_wandb_post_run(
+        cfg=cfg,
+        trainer=trainer,
+        lit_module=lit_module,
+        datamodule=datamodule,
+        run_dir=run_dir,
+        report_path=report_path,
+        elapsed_seconds=elapsed_seconds,
+    )
 
     result = RunResult(run_dir=str(run_dir), metrics=metrics, report_path=report_path)
     print(OmegaConf.to_yaml(result.to_dict(), resolve=True))

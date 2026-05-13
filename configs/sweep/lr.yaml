@@ -3,6 +3,15 @@ name: lr_sweep
 experiment: optimization_lr
 train_script: train.py
 stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: optimization_lr
+  question: What learning-rate range is useful for the baseline MLP?
+  hypothesis: The middle learning rate should be the best short-run tradeoff.
+  expected_pattern: Very small LR should under-train and very large LR should be less stable.
+  controlled_variables: [dataset, model_architecture, optimizer, batch_size, seed]
+  changed_variables: [optimizer.lr]
+  tags: [optimization, learning-rate]
 parameters:
   optimizer.lr:
     - 0.001

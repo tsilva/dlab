@@ -7,6 +7,8 @@ defaults:
 task: reconstruction
 run:
   study: baseline
+  goal: Establish a dense autoencoder reconstruction baseline on MNIST.
+  tags: [baseline, autoencoder, mnist]
 dataset:
   normalize: false
 loss:

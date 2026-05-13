@@ -3,6 +3,15 @@ name: batch_size_sweep
 experiment: mnist_mlp
 train_script: train.py
 stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: batch_size
+  question: How does batch size affect optimization speed and validation performance?
+  hypothesis: Larger batches should be smoother but may generalize slightly worse for the same epoch budget.
+  expected_pattern: Throughput should improve with batch size while validation behavior may flatten or degrade.
+  controlled_variables: [dataset, model_architecture, optimizer, learning_rate, seed]
+  changed_variables: [dataset.batch_size]
+  tags: [optimization, batch-size]
 parameters:
   dataset.batch_size:
     - 32

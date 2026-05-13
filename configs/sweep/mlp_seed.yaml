@@ -3,6 +3,15 @@ name: mlp_seed_sweep
 experiment: mnist_mlp_research
 train_script: train.py
 stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_seed
+  question: How much variance does random seed introduce for a fixed MNIST MLP setup?
+  hypothesis: Seed variance should be small on MNIST but still visible in early convergence and final accuracy.
+  expected_pattern: Final metrics should cluster tightly, while learning curves may differ early.
+  controlled_variables: [dataset, model_architecture, optimizer, learning_rate, batch_size]
+  changed_variables: [seed]
+  tags: [roadmap, reproducibility, seed-variance]
 parameters:
   model:
     params:

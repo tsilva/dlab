@@ -3,6 +3,14 @@ name: beta_vae_sweep
 experiment: autoencoder_research
 train_script: train.py
 stop_on_failure: true
+run:
+  study: beta_vae
+  question: How does beta trade reconstruction quality against latent regularization in a VAE?
+  hypothesis: Higher beta should increase KL pressure and reduce reconstruction fidelity.
+  expected_pattern: Reconstruction loss should worsen as beta increases while KL behavior changes.
+  controlled_variables: [dataset, model_architecture, optimizer, learning_rate, batch_size, seed]
+  changed_variables: [loss.beta]
+  tags: [autoencoder, vae, beta]
 parameters:
   loss.beta:
     - 0.25

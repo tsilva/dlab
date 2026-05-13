@@ -1,0 +1,24 @@
+stages:
+  - id: 01_mlp_basics
+    goal: Learn how LR, width, depth, dropout, batch size, and seed affect MNIST MLPs.
+    studies:
+      - mlp_lr
+      - mlp_arch
+      - mlp_regularization
+      - mlp_seed
+
+  - id: 02_cnn_inductive_bias
+    goal: Compare MLPs and CNNs on image data.
+    studies:
+      - mnist_mlp
+      - mnist_cnn
+      - fashion_mnist_cnn
+      - cnn_width
+      - cnn_depth
+
+  - id: 03_dataset_difficulty
+    goal: See how the same model families behave as data complexity increases.
+    studies:
+      - mnist_mlp
+      - fashion_mnist_cnn
+      - cifar10_resnet18

@@ -3,6 +3,15 @@ name: optimizer_sweep
 experiment: optimization_optimizer
 train_script: train.py
 stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: optimizer
+  question: How do Adam, AdamW, and SGD differ on the same baseline MLP?
+  hypothesis: Adaptive optimizers should converge faster than SGD in the short training budget.
+  expected_pattern: Adam and AdamW should lead early, while SGD may need a different LR schedule.
+  controlled_variables: [dataset, model_architecture, batch_size, seed, trainer]
+  changed_variables: [optimizer]
+  tags: [optimization, optimizer]
 parameters:
   optimizer:
     - adam

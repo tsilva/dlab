@@ -159,14 +159,18 @@ def test_runpod_flash_launcher_uses_deployable_endpoint_module(monkeypatch) -> N
         def __call__(self, _func):
             def remote_train(config_yaml: str) -> dict:
                 calls["config_yaml"] = config_yaml
-                return {"run_dir": "outputs/runpod", "metrics": {}}
+                return {
+                    "id": "job-123",
+                    "status": "COMPLETED",
+                    "output": {"run_dir": "outputs/runpod", "metrics": {}},
+                }
 
             return remote_train
 
     fake_runpod_flash = SimpleNamespace(
         Endpoint=FakeEndpoint,
         GpuGroup=SimpleNamespace(ANY="any-gpu"),
-        GpuType=SimpleNamespace(NVIDIA_GEFORCE_RTX_4090="rtx-4090"),
+        GpuType=SimpleNamespace(NVIDIA_GEFORCE_RTX_4090="rtx-4090", NVIDIA_L4="l4"),
     )
     monkeypatch.delitem(sys.modules, "src.execution.runpod_flash_app", raising=False)
     monkeypatch.setitem(sys.modules, "runpod_flash", fake_runpod_flash)
@@ -189,7 +193,7 @@ def test_runpod_flash_launcher_uses_deployable_endpoint_module(monkeypatch) -> N
     assert result.run_dir == "outputs/runpod"
     assert calls["endpoint_kwargs"] == {
         "name": "dlab-train",
-        "gpu": "rtx-4090",
+        "gpu": "l4",
         "workers": (0, 1),
         "dependencies": [
             "einops>=0.8.0",

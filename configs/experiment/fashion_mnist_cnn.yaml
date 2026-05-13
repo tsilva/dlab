@@ -6,7 +6,10 @@ defaults:
 
 task: classification
 run:
+  stage: 02_cnn_inductive_bias
   study: baseline
+  goal: Compare the same CNN family on a harder grayscale image dataset.
+  tags: [baseline, cnn, fashion-mnist]
 model:
   params:
     channels: [32, 64]

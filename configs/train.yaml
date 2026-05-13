@@ -13,9 +13,17 @@ task: classification
 
 run:
   study: baseline
+  stage: null
   group: null
   sweep_name: null
   sweep_index: null
+  question: null
+  hypothesis: null
+  goal: null
+  expected_pattern: null
+  controlled_variables: []
+  changed_variables: []
+  tags: []
 
 paths:
   outputs_dir: outputs
@@ -39,6 +47,15 @@ wandb:
   entity: null
   mode: online
   log_model: false
+  job_type: train
+  log_code: false
+  log_artifacts: true
+  log_tables: true
+  table_max_examples: 32
+  watch:
+    enabled: false
+    log: gradients
+    log_freq: 100
 
 litlogger:
   enabled: false

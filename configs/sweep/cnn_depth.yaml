@@ -3,6 +3,15 @@ name: cnn_depth_sweep
 experiment: cnn_depth
 train_script: train.py
 stop_on_failure: true
+run:
+  stage: 02_cnn_inductive_bias
+  study: cnn_depth
+  question: How does CNN depth affect image classification compared with shallower convolutional models?
+  hypothesis: More depth should help feature hierarchy learning until optimization or overfitting dominates.
+  expected_pattern: Moderate depth should win, while extra depth may add cost without much MNIST gain.
+  controlled_variables: [dataset, optimizer, learning_rate, batch_size, seed]
+  changed_variables: [model.params.channels]
+  tags: [roadmap, cnn, depth]
 parameters:
   model.params.channels:
     - [32]

@@ -6,7 +6,10 @@ defaults:
 
 task: classification
 run:
+  stage: 02_cnn_inductive_bias
   study: baseline
+  goal: Establish a simple MNIST CNN baseline.
+  tags: [baseline, cnn, mnist]
 model:
   params:
     channels: [32, 64]

@@ -6,7 +6,10 @@ defaults:
 
 task: classification
 run:
+  stage: 01_mlp_basics
   study: baseline
+  goal: Establish a simple MNIST MLP baseline.
+  tags: [baseline, mlp, mnist]
 model:
   params:
     hidden_dim: 256

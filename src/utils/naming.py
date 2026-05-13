@@ -50,7 +50,9 @@ def _build_run_name(cfg: DictConfig, study: str) -> str:
     sweep_name = _optional_str(cfg.run.get("sweep_name"))
     sweep_index = cfg.run.get("sweep_index")
     if sweep_name:
-        parts.extend([sweep_name, f"i{int(sweep_index):03d}"])
+        parts.append(sweep_name)
+        if sweep_index is not None:
+            parts.append(f"i{int(sweep_index):03d}")
 
     parts.append(f"seed{cfg.seed}")
     return _slug_join(*parts)
@@ -77,4 +79,3 @@ def _slug_join(*parts: Any) -> str:
     text = re.sub(r"[^A-Za-z0-9.+-]+", "-", text)
     text = re.sub(r"-+", "-", text)
     return text.strip("-").lower()
-

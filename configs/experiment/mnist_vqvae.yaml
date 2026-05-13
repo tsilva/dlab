@@ -7,6 +7,8 @@ defaults:
 task: vqvae
 run:
   study: baseline
+  goal: Establish a VQ-VAE reconstruction baseline on MNIST.
+  tags: [baseline, vqvae, mnist]
 dataset:
   normalize: false
 loss:

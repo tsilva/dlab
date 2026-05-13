@@ -3,6 +3,15 @@ name: mlp_regularization_sweep
 experiment: mnist_mlp_research
 train_script: train.py
 stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_regularization
+  question: How do dropout, weight decay, optimizer choice, and batch size interact?
+  hypothesis: Regularization should improve validation loss when capacity is high, but too much should slow learning.
+  expected_pattern: The best runs should balance dropout or weight decay with a batch size that keeps optimization stable.
+  controlled_variables: [dataset, model_family, learning_rate, seed]
+  changed_variables: [model.params.dropout, optimizer.name, optimizer.weight_decay, dataset.batch_size]
+  tags: [roadmap, regularization, batch-size]
 parameters:
   model:
     params:

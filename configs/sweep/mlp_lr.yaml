@@ -3,6 +3,15 @@ name: mlp_lr_sweep
 experiment: mnist_mlp_research
 train_script: train.py
 stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_lr
+  question: How does learning rate affect MNIST MLP convergence and final validation accuracy?
+  hypothesis: Larger learning rates should learn faster early but become unstable past the useful range.
+  expected_pattern: Validation loss should form a U-shaped curve across learning rates.
+  controlled_variables: [dataset, model_architecture, optimizer, batch_size, seed]
+  changed_variables: [optimizer.lr]
+  tags: [roadmap, optimization, learning-rate]
 parameters:
   optimizer:
     lr:

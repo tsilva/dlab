@@ -22,6 +22,12 @@ def expand_grid(parameters: Mapping[str, list[Any]]) -> list[dict[str, Any]]:
 
 
 def run_sweep(cfg: DictConfig) -> list[int]:
+    if cfg.get("backend", "local") == "wandb":
+        from src.sweeps.wandb import run_wandb_sweep
+
+        run_wandb_sweep(cfg)
+        return [0]
+
     raw_params = OmegaConf.to_container(cfg.parameters, resolve=True)
     if not isinstance(raw_params, Mapping):
         raise TypeError("Sweep parameters must be a mapping.")
@@ -36,6 +42,7 @@ def run_sweep(cfg: DictConfig) -> list[int]:
             *launcher_cli_overrides(cfg),
             f"run.sweep_name={cfg.name}",
             f"run.sweep_index={index}",
+            *_run_metadata_overrides(cfg),
             *overrides,
         ]
         commands.append(command)
@@ -61,3 +68,17 @@ def flatten_parameter_grid(parameters: Mapping[str, Any], prefix: str = "") -> d
             raise TypeError(f"Sweep parameter '{full_key}' must be a list.")
         flat[full_key] = value
     return flat
+
+
+def _run_metadata_overrides(cfg: DictConfig) -> list[str]:
+    run_cfg = cfg.get("run")
+    if run_cfg is None:
+        return []
+    run_metadata = OmegaConf.to_container(run_cfg, resolve=True)
+    if not isinstance(run_metadata, Mapping):
+        return []
+    return [
+        f"run.{key}={format_override_value(value)}"
+        for key, value in sorted(run_metadata.items())
+        if value is not None
+    ]

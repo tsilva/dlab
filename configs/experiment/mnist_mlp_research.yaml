@@ -6,9 +6,11 @@ defaults:
 
 task: classification
 run:
+  stage: 01_mlp_basics
   study: mlp-research
+  goal: Learn baseline MLP training behavior on MNIST before moving to CNNs.
+  tags: [roadmap, mlp, mnist]
 trainer:
   max_epochs: 10
 wandb:
   enabled: false
-

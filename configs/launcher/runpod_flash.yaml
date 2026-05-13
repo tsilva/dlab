@@ -1,7 +1,8 @@
 name: runpod_flash
 endpoint_name: dlab-train
-gpu: NVIDIA_GEFORCE_RTX_4090
+gpu: NVIDIA_L4
 workers: [0, 1]
+idle_timeout: 300
 python_version: "3.12"
 dependencies:
   - einops>=0.8.0

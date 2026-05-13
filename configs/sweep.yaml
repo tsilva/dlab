@@ -3,6 +3,30 @@ defaults:
   - launcher: local
   - _self_
 
+backend: local
+
+wandb:
+  project: dlab
+  entity: null
+
+wandb_sweep:
+  id: null
+  method: grid
+  metric:
+    name: val/loss
+    goal: minimize
+  output_dir: outputs/wandb_sweeps
+  create: true
+  start_agent: false
+  agents: 1
+  count: null
+  command:
+    - uv
+    - run
+    - python
+    - ${program}
+    - ${args_no_hyphens}
+
 hydra:
   run:
     dir: outputs/hydra_sweeps/${now:%Y%m%d_%H%M%S}
