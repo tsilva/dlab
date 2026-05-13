@@ -1,3 +1,4 @@
+# @package _global_
 name: optimizer_sweep
 experiment: optimization_optimizer
 train_script: train.py
@@ -7,4 +8,3 @@ parameters:
     - adam
     - adamw
     - sgd
-

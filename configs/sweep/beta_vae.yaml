@@ -1,3 +1,4 @@
+# @package _global_
 name: beta_vae_sweep
 experiment: autoencoder_research
 train_script: train.py
@@ -7,4 +8,3 @@ parameters:
     - 0.25
     - 1.0
     - 4.0
-

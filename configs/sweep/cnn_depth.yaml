@@ -1,3 +1,4 @@
+# @package _global_
 name: cnn_depth_sweep
 experiment: cnn_depth
 train_script: train.py
@@ -7,4 +8,3 @@ parameters:
     - [32]
     - [32, 64]
     - [32, 64, 128]
-

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hydra
 from omegaconf import DictConfig
 
-from src.sweeps import run_sweep
+from src.sweeps.runner import run_sweep
 
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="sweep")
@@ -16,4 +16,3 @@ def main(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     main()
-

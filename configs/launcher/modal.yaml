@@ -1,0 +1,9 @@
+name: modal
+app_name: dlab-train
+gpu: L4
+timeout_seconds: 7200
+python_version: "3.12"
+use_uv_sync: true
+copy_source: false
+show_progress: true
+secrets: []

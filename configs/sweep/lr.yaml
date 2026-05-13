@@ -1,3 +1,4 @@
+# @package _global_
 name: lr_sweep
 experiment: optimization_lr
 train_script: train.py
@@ -7,4 +8,3 @@ parameters:
     - 0.001
     - 0.0003
     - 0.0001
-

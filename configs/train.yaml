@@ -5,6 +5,7 @@ defaults:
   - trainer: default
   - _self_
   - experiment: null
+  - launcher: local
 
 experiment_name: null
 seed: 1337
@@ -19,6 +20,9 @@ run:
 paths:
   outputs_dir: outputs
   reports_dir: reports
+
+runtime:
+  float32_matmul_precision: null
 
 loss:
   name: cross_entropy

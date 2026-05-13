@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from src.analysis import compare_runs, summarize_run
+from src.analysis.runs import compare_runs, summarize_run
 
 
 def main() -> None:

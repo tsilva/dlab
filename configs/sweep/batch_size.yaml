@@ -1,3 +1,4 @@
+# @package _global_
 name: batch_size_sweep
 experiment: mnist_mlp
 train_script: train.py
@@ -7,4 +8,3 @@ parameters:
     - 32
     - 64
     - 128
-

@@ -1,7 +1,7 @@
 [project]
 name = "dlab"
 version = "0.1.0"
-description = "A local-first deep learning experimentation OS for rapid research loops."
+description = "Fast, reproducible deep learning experiments from local runs to cloud sweeps."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -11,11 +11,13 @@ dependencies = [
     "jupytext>=1.16.0",
     "litlogger>=2026.5.12",
     "matplotlib>=3.9.0",
+    "modal>=1.4.2",
     "numpy>=2.0.0",
     "omegaconf>=2.3.0",
     "pandas>=2.2.0",
     "pillow>=10.4.0",
     "pytorch-lightning>=2.4.0",
+    "runpod-flash>=1.16.0",
     "scikit-learn>=1.5.0",
     "timm>=1.0.0",
     "torch>=2.4.0",

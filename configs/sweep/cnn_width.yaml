@@ -1,3 +1,4 @@
+# @package _global_
 name: cnn_width_sweep
 experiment: mnist_cnn
 train_script: train.py
@@ -7,4 +8,3 @@ parameters:
     - [16, 32]
     - [32, 64]
     - [64, 128]
-

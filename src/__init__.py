@@ -1,1 +1,1 @@
-"""dlab: a lightweight local research operating system for deep learning."""
+"""dlab: fast, reproducible deep learning experiments from local runs to cloud sweeps."""
