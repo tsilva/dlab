@@ -8,7 +8,7 @@ from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
 
-from src.execution.launchers import get_launcher_name, launcher_cli_overrides
+from src.execution.launchers import format_override_value, get_launcher_name, launcher_cli_overrides
 from src.sweeps.runner import flatten_parameter_grid
 
 
@@ -21,15 +21,15 @@ def build_wandb_sweep_config(cfg: DictConfig) -> dict[str, Any]:
         key: {"values": values}
         for key, values in flatten_parameter_grid(raw_params).items()
     }
-    parameters["experiment"] = {"value": cfg.experiment}
-    parameters["run.sweep_name"] = {"value": cfg.name}
+    parameters["experiment"] = {"value": _hydra_constant(cfg.experiment)}
+    parameters["run.sweep_name"] = {"value": _hydra_constant(cfg.name)}
     parameters["wandb.enabled"] = {"value": True}
-    parameters["wandb.project"] = {"value": cfg.wandb.get("project", "dlab")}
+    parameters["wandb.project"] = {"value": _hydra_constant(cfg.wandb.get("project", "dlab"))}
     if cfg.wandb.get("entity") is not None:
-        parameters["wandb.entity"] = {"value": cfg.wandb.entity}
+        parameters["wandb.entity"] = {"value": _hydra_constant(cfg.wandb.entity)}
     for key, value in _run_metadata(cfg).items():
         if value is not None:
-            parameters[f"run.{key}"] = {"value": value}
+            parameters[f"run.{key}"] = {"value": _hydra_constant(value)}
     for override in launcher_cli_overrides(cfg):
         key, value = override.split("=", 1)
         parameters[key] = {"value": _parse_constant_value(value)}
@@ -158,6 +158,12 @@ def _parse_constant_value(value: str) -> Any:
         return float(value)
     except ValueError:
         return value
+
+
+def _hydra_constant(value: Any) -> Any:
+    if isinstance(value, str):
+        return format_override_value(value)
+    return value
 
 
 def _run_metadata(cfg: DictConfig) -> dict[str, Any]:

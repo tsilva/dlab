@@ -35,6 +35,7 @@ uv run python train.py experiment=mnist_mlp launcher=runpod_flash   # submit one
 uv run python sweep.py sweep=lr                                     # run a sequential sweep
 uv run python sweep.py sweep=mlp_lr backend=wandb                   # create a W&B sweep from Hydra config
 uv run python sweep.py sweep=mlp_lr backend=wandb wandb_sweep.start_agent=true
+uv run python sweep.py sweep=mlp_lr_seed backend=wandb launcher=modal_gpu wandb_sweep.start_agent=true wandb_sweep.agents=4  # 4 LR values x 3 seeds
 uv run python roadmap.py list                                       # inspect the learning roadmap
 uv run python roadmap.py run 01_mlp_basics --backend wandb          # create/run a roadmap stage through W&B sweeps
 uv run python sweep.py sweep=lr launcher=modal                      # submit sweep runs through Modal
