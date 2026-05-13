@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./logo.png" alt="dlab" width="220" />
+  <img src="./logo.png" alt="dlab" width="256" />
 
   **🧪 Fast, reproducible deep learning experiments from local runs to cloud sweeps 🧪**
 </div>
