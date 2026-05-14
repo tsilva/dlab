@@ -1,0 +1,28 @@
+# @package _global_
+name: mlp_aug_compact_sweep
+experiment: mnist_mlp_best
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_aug_compact
+  question: Which compact MNIST affine augmentation recipe improves the current best MLP?
+  hypothesis: Mild affine augmentation should improve validation accuracy by teaching translation and rotation invariance, while overly strong augmentation may hurt digit readability.
+  expected_pattern: Validation accuracy should improve for mild-to-moderate affine augmentation and degrade when rotation, translation, and scale jitter are too strong.
+  controlled_variables: [dataset, model_architecture, optimizer, learning_rate, batch_size, weight_decay, early_stopping]
+  changed_variables: [experiment, dataset.augmentation, seed]
+  tags: [roadmap, mlp, mnist, augmentation, affine, compact-sweep, seed-variance]
+parameters:
+  experiment:
+    - mnist_mlp_best
+    - mnist_mlp_aug_affine_5deg_t05
+    - mnist_mlp_aug_affine_10deg_t05
+    - mnist_mlp_aug_affine_10deg_t10
+    - mnist_mlp_aug_affine_10deg_t05_s09_11
+    - mnist_mlp_aug_affine_15deg_t10_s09_11
+  seed:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5

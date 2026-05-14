@@ -6,7 +6,14 @@ stages:
       - mlp_lr_seed
       - mlp_arch
       - mlp_arch_confirm
+      - mlp_regularization_confirm
       - mlp_regularization
+      - mlp_batch_size_confirm
+      - mlp_batch_lr_interaction
+      - mlp_batch_lr_confirm
+      - mlp_high_capacity_norm_phase1
+      - mlp_high_capacity_top3_seed_confirm
+      - mlp_aug_compact
       - mlp_seed
 
   - id: 02_cnn_inductive_bias

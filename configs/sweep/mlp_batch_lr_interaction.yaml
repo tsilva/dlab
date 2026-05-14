@@ -1,0 +1,42 @@
+# @package _global_
+name: mlp_batch_lr_interaction_sweep
+experiment: mnist_mlp_research
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_batch_lr_interaction
+  question: How do learning rate and batch size interact for the best MNIST MLP recipe?
+  hypothesis: Larger batches should need or tolerate larger learning rates, while very large batches should still underperform if the learning rate is too small or too large.
+  expected_pattern: The best learning rate may shift upward as batch size increases, revealing a ridge of good batch-size/LR combinations.
+  controlled_variables: [dataset, model_architecture, optimizer, dropout, weight_decay]
+  changed_variables: [dataset.batch_size, optimizer.lr, seed]
+  tags: [roadmap, optimization, batch-size, learning-rate, interaction, seed-variance]
+parameters:
+  model:
+    params:
+      hidden_dim:
+        - 512
+      num_layers:
+        - 1
+      dropout:
+        - 0.1
+  optimizer:
+    name:
+      - adam
+    lr:
+      - 0.0001
+      - 0.0003
+      - 0.001
+    weight_decay:
+      - 0.0001
+  dataset:
+    batch_size:
+      - 64
+      - 128
+      - 256
+      - 512
+  seed:
+    - 1
+    - 2
+    - 3

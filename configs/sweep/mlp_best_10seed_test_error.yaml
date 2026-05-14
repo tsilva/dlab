@@ -1,0 +1,26 @@
+# @package _global_
+name: mlp_best_10seed_test_error_sweep
+experiment: mnist_mlp_best
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_best_10seed_test_error
+  question: How reliable is the current best MNIST MLP recipe across seeds, and what errors remain on the official test split?
+  hypothesis: The best MLP recipe should average above 99.3% validation accuracy and show a small set of ambiguous test errors.
+  expected_pattern: Validation and test accuracy should have low seed variance, with misclassifications concentrated in visually ambiguous digits.
+  controlled_variables: [dataset, model_architecture, augmentation, optimizer, scheduler, batch_size, weight_decay, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [seed]
+  tags: [roadmap, mlp, mnist, current-best, seed-variance, test-eval, error-analysis]
+parameters:
+  seed:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10

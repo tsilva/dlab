@@ -21,7 +21,8 @@ def build_wandb_sweep_config(cfg: DictConfig) -> dict[str, Any]:
         key: {"values": values}
         for key, values in flatten_parameter_grid(raw_params).items()
     }
-    parameters["experiment"] = {"value": _hydra_constant(cfg.experiment)}
+    if "experiment" not in parameters:
+        parameters["experiment"] = {"value": _hydra_constant(cfg.experiment)}
     parameters["run.sweep_name"] = {"value": _hydra_constant(cfg.name)}
     parameters["wandb.enabled"] = {"value": True}
     parameters["wandb.project"] = {"value": _hydra_constant(cfg.wandb.get("project", "dlab"))}

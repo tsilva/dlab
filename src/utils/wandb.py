@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import math
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,11 @@ def summarize_training_run(
         summary["runtime/steps_per_second"] = summary["trainer/global_step"] / elapsed_seconds
 
     callback_metrics = getattr(trainer, "callback_metrics", {})
+    for key, value in callback_metrics.items():
+        metric = _metric_value(value)
+        if metric is not None:
+            summary[str(key)] = metric
+
     train_loss = _metric_value(callback_metrics.get("train/loss_epoch"))
     val_loss = _metric_value(callback_metrics.get("val/loss"))
     if train_loss is not None and val_loss is not None:
@@ -71,6 +77,15 @@ def summarize_training_run(
         best_path = getattr(checkpoint, "best_model_path", "")
         if best_path:
             summary["checkpoint/best_model_path"] = best_path
+    for callback in getattr(trainer, "callbacks", []):
+        if callback.__class__.__name__ != "EarlyStopping":
+            continue
+        stopped_epoch = int(getattr(callback, "stopped_epoch", 0))
+        summary["early_stopping/stopped_epoch"] = stopped_epoch
+        summary["early_stopping/stopped"] = int(stopped_epoch > 0)
+        summary["early_stopping/wait_count"] = int(getattr(callback, "wait_count", 0))
+        summary["early_stopping/patience"] = int(getattr(callback, "patience", 0))
+        break
     return summary
 
 
@@ -96,9 +111,13 @@ def log_wandb_post_run(
 
     if cfg.wandb.get("log_tables", True):
         _log_example_table(cfg, wandb_run, lit_module, datamodule)
+        if cfg.get("evaluation", {}).get("error_analysis", {}).get("enabled", False):
+            _log_error_analysis_table(cfg, wandb_run, lit_module, datamodule)
 
     if cfg.wandb.get("log_artifacts", True):
         _log_run_artifact(cfg, wandb_run, run_dir, report_path)
+
+    wandb_run.finish()
 
 
 def _log_example_table(
@@ -162,6 +181,81 @@ def _log_example_table(
     wandb_run.log({"examples/reconstructions": table})
 
 
+def _log_error_analysis_table(
+    cfg: DictConfig,
+    wandb_run: Any,
+    lit_module: torch.nn.Module,
+    datamodule: Any,
+) -> None:
+    if cfg.task != "classification":
+        return
+    try:
+        import wandb
+    except ImportError:
+        return
+
+    max_examples = int(cfg.evaluation.error_analysis.get("max_examples", 128))
+    if max_examples <= 0:
+        return
+
+    datamodule.setup("test")
+    dataloader = datamodule.test_dataloader()
+    model = lit_module.model
+    model.eval()
+    table = wandb.Table(
+        columns=[
+            "index",
+            "image",
+            "label",
+            "prediction",
+            "confidence",
+            "label_probability",
+            "margin",
+            "top2_prediction",
+            "top2_confidence",
+        ]
+    )
+
+    logged = 0
+    seen = 0
+    with torch.no_grad():
+        for x, y in dataloader:
+            x_device = x.to(lit_module.device)
+            logits = model(x_device)
+            probs = torch.softmax(logits, dim=1).cpu()
+            preds = torch.argmax(probs, dim=1)
+            mistakes = preds != y
+            if not bool(mistakes.any()):
+                seen += len(y)
+                continue
+
+            images = _image_batch_for_wandb(cfg, x_device).cpu()
+            top2_conf, top2_preds = probs.topk(k=2, dim=1)
+            for batch_index in mistakes.nonzero(as_tuple=False).flatten().tolist():
+                label = int(y[batch_index].item())
+                prediction = int(preds[batch_index].item())
+                table.add_data(
+                    seen + batch_index,
+                    wandb.Image(images[batch_index]),
+                    label,
+                    prediction,
+                    float(top2_conf[batch_index, 0].item()),
+                    float(probs[batch_index, label].item()),
+                    float((top2_conf[batch_index, 0] - top2_conf[batch_index, 1]).item()),
+                    int(top2_preds[batch_index, 1].item()),
+                    float(top2_conf[batch_index, 1].item()),
+                )
+                logged += 1
+                if logged >= max_examples:
+                    wandb_run.summary["errors/test_misclassification_count_logged"] = logged
+                    wandb_run.log({"errors/test_misclassifications": table})
+                    return
+            seen += len(y)
+
+    wandb_run.summary["errors/test_misclassification_count_logged"] = logged
+    wandb_run.log({"errors/test_misclassifications": table})
+
+
 def _log_run_artifact(
     cfg: DictConfig,
     wandb_run: Any,
@@ -174,7 +268,7 @@ def _log_run_artifact(
         return
 
     artifact = wandb.Artifact(
-        name=f"{cfg.experiment_name}-run",
+        name=_wandb_artifact_name(f"{cfg.experiment_name}-run"),
         type="run-output",
         metadata=OmegaConf.to_container(cfg, resolve=True),
     )
@@ -190,6 +284,14 @@ def _log_run_artifact(
     if report_path and Path(report_path).exists():
         artifact.add_file(report_path, name=Path(report_path).name)
     wandb_run.log_artifact(artifact)
+
+
+def _wandb_artifact_name(name: str, max_length: int = 128) -> str:
+    if len(name) <= max_length:
+        return name
+    digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:10]
+    prefix_length = max_length - len(digest) - 1
+    return f"{name[:prefix_length]}-{digest}".rstrip("-")
 
 
 def _active_wandb_run() -> Any | None:

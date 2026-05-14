@@ -1,0 +1,46 @@
+# @package _global_
+name: mlp_batch_lr_confirm_sweep
+experiment: mnist_mlp_research
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_batch_lr_confirm
+  question: Is the apparent batch-size/LR winner stable across more random seeds?
+  hypothesis: The best recipe from the interaction sweep should remain competitive across 10 seeds, but the gap may be small enough to prefer the more stable setting.
+  expected_pattern: The best recipe should have the lowest mean validation loss with acceptable seed variance.
+  controlled_variables: [dataset, model_architecture, optimizer, dropout, weight_decay]
+  changed_variables: [dataset.batch_size, optimizer.lr, seed]
+  tags: [roadmap, optimization, batch-size, learning-rate, confirmation, seed-variance]
+parameters:
+  model:
+    params:
+      hidden_dim:
+        - 512
+      num_layers:
+        - 1
+      dropout:
+        - 0.1
+  optimizer:
+    name:
+      - adam
+    lr:
+      - 0.0003
+      - 0.001
+    weight_decay:
+      - 0.0001
+  dataset:
+    batch_size:
+      - 128
+      - 512
+  seed:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10

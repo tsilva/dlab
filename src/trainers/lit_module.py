@@ -18,6 +18,7 @@ class ResearchLitModule(pl.LightningModule):
         self.cfg = cfg
         self.task = cfg.get("task", getattr(model, "task", "classification"))
         self.beta = float(cfg.get("loss", {}).get("beta", 1.0))
+        self.label_smoothing = float(cfg.get("loss", {}).get("label_smoothing", 0.0))
         self.learning_rate = float(cfg.optimizer.get("lr", 1e-3))
         self.example_batch: torch.Tensor | None = None
         self.save_hyperparameters(ignore=["model"])
@@ -28,7 +29,7 @@ class ResearchLitModule(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = build_optimizer(self.parameters(), self.cfg.optimizer)
         scheduler_cfg = self.cfg.optimizer.get("scheduler")
-        if not scheduler_cfg:
+        if not scheduler_cfg or scheduler_cfg.get("name", "constant") in {None, "constant", "none"}:
             return optimizer
         if scheduler_cfg.name == "cosine":
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -39,6 +40,19 @@ class ResearchLitModule(pl.LightningModule):
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": scheduler, "interval": "epoch"},
+            }
+        if scheduler_cfg.name == "one_cycle":
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                optimizer,
+                max_lr=float(scheduler_cfg.get("max_lr", self.cfg.optimizer.lr)),
+                total_steps=int(self.trainer.estimated_stepping_batches),
+                pct_start=float(scheduler_cfg.get("pct_start", 0.25)),
+                div_factor=float(scheduler_cfg.get("div_factor", 10.0)),
+                final_div_factor=float(scheduler_cfg.get("final_div_factor", 100.0)),
+            )
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": scheduler, "interval": "step"},
             }
         raise KeyError(f"Unknown scheduler '{scheduler_cfg.name}'")
 
@@ -93,7 +107,7 @@ class ResearchLitModule(pl.LightningModule):
         x, y = batch
         if self.task == "classification":
             logits = self.model(x)
-            loss = F.cross_entropy(logits, y)
+            loss = F.cross_entropy(logits, y, label_smoothing=self.label_smoothing)
             preds = torch.argmax(logits, dim=1)
             acc = (preds == y).float().mean()
             return loss, {f"{prefix}/loss": loss, f"{prefix}/acc": acc}

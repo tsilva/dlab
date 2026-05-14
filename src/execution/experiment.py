@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
+from pytorch_lightning.callbacks import WeightAveraging
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,12 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     configure_runtime_warnings()
 
     import pytorch_lightning as pl
-    from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+    from pytorch_lightning.callbacks import (
+        EMAWeightAveraging,
+        EarlyStopping,
+        LearningRateMonitor,
+        ModelCheckpoint,
+    )
     from pytorch_lightning.loggers import CSVLogger, WandbLogger
 
     from src.datasets import build_datamodule
@@ -63,6 +69,34 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     save_resolved_config(cfg, run_dir)
 
     callbacks: list[pl.Callback] = [LearningRateMonitor(logging_interval="step")]
+    weight_averaging = cfg.get("weight_averaging", {})
+    weight_averaging_name = str(weight_averaging.get("name", "none"))
+    if weight_averaging_name == "swa":
+        callbacks.append(WeightAveraging(use_buffers=False))
+    elif weight_averaging_name == "ema":
+        update_starting_at_epoch = weight_averaging.get("update_starting_at_epoch")
+        callbacks.append(
+            EMAWeightAveraging(
+                decay=float(weight_averaging.get("ema_decay", 0.999)),
+                update_every_n_steps=int(weight_averaging.get("update_every_n_steps", 1)),
+                update_starting_at_epoch=(
+                    None if update_starting_at_epoch is None else int(update_starting_at_epoch)
+                ),
+            )
+        )
+    elif weight_averaging_name not in {"none", "null", ""}:
+        raise KeyError(f"Unknown weight averaging '{weight_averaging_name}'")
+    early_stopping_callback: EarlyStopping | None = None
+    if cfg.get("early_stopping", {}).get("enabled", False):
+        early_stopping_callback = EarlyStopping(
+            monitor=cfg.early_stopping.get("monitor", cfg.checkpoint.monitor),
+            mode=cfg.early_stopping.get("mode", cfg.checkpoint.mode),
+            patience=int(cfg.early_stopping.patience),
+            min_delta=float(cfg.early_stopping.get("min_delta", 0.0)),
+            check_finite=bool(cfg.early_stopping.get("check_finite", True)),
+            verbose=bool(cfg.early_stopping.get("verbose", False)),
+        )
+        callbacks.append(early_stopping_callback)
     if cfg.trainer.enable_checkpointing:
         callbacks.append(
             ModelCheckpoint(
@@ -133,13 +167,22 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     started_at = time.perf_counter()
     trainer.fit(lit_module, datamodule=datamodule)
     elapsed_seconds = time.perf_counter() - started_at
+    test_results = _run_test_if_enabled(cfg, trainer, lit_module, datamodule)
 
     metrics = {
         key: value.item() if hasattr(value, "item") else value
         for key, value in trainer.callback_metrics.items()
     }
+    if test_results:
+        metrics.update(test_results[0])
     metrics.update(model_summary)
     metrics["runtime/seconds"] = elapsed_seconds
+    if early_stopping_callback is not None:
+        stopped_epoch = int(early_stopping_callback.stopped_epoch)
+        metrics["early_stopping/stopped_epoch"] = stopped_epoch
+        metrics["early_stopping/stopped"] = bool(stopped_epoch > 0)
+        metrics["early_stopping/wait_count"] = int(early_stopping_callback.wait_count)
+        metrics["early_stopping/patience"] = int(early_stopping_callback.patience)
     report_path = None
     if cfg.reports.enabled:
         report_path = str(write_experiment_report(cfg, metrics, run_dir, cfg.paths.reports_dir))
@@ -158,6 +201,26 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     result = RunResult(run_dir=str(run_dir), metrics=metrics, report_path=report_path)
     print(OmegaConf.to_yaml(result.to_dict(), resolve=True))
     return result
+
+
+def _run_test_if_enabled(
+    cfg: DictConfig,
+    trainer: Any,
+    lit_module: Any,
+    datamodule: Any,
+) -> list[dict[str, Any]]:
+    if not cfg.get("evaluation", {}).get("test", {}).get("enabled", False):
+        return []
+
+    ckpt_path = cfg.evaluation.test.get("ckpt_path", "best")
+    if ckpt_path == "best" and not bool(cfg.trainer.enable_checkpointing):
+        ckpt_path = None
+    return trainer.test(
+        lit_module,
+        datamodule=datamodule,
+        ckpt_path=ckpt_path,
+        weights_only=bool(cfg.evaluation.test.get("weights_only", False)),
+    )
 
 
 def configure_torch_runtime(cfg: DictConfig) -> None:

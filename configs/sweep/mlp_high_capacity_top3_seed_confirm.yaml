@@ -1,0 +1,30 @@
+# @package _global_
+name: mlp_high_capacity_top3_seed_confirm_sweep
+experiment: mnist_mlp_top1_bn_1024_d4_do0p1
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_high_capacity_top3_seed_confirm
+  question: Which top high-capacity MNIST MLP recipe is robust across random seeds?
+  hypothesis: The batch-norm 1024x4 dropout-0.1 recipe should keep the best mean validation loss, while the no-batch-norm control may have similar accuracy but worse loss stability.
+  expected_pattern: The winner should have the best mean validation loss with low seed variance and competitive mean validation accuracy.
+  controlled_variables: [dataset, optimizer, learning_rate, batch_size, weight_decay, early_stopping]
+  changed_variables: [experiment, seed]
+  tags: [roadmap, capacity, confirmation, seed-variance, batch-norm, mlp-ceiling]
+parameters:
+  experiment:
+    - mnist_mlp_top1_bn_1024_d4_do0p1
+    - mnist_mlp_top2_bn_1024_d3_do0p2
+    - mnist_mlp_top3_no_bn_1024_d3_do0p1
+  seed:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10

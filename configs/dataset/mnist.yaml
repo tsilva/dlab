@@ -6,3 +6,10 @@ val_split: 0.1
 normalize: true
 download: true
 pin_memory: null
+augmentation:
+  enabled: false
+  random_affine:
+    degrees: 0
+    translate: null
+    scale: null
+    fill: 0

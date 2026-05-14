@@ -1,0 +1,17 @@
+# @package _global_
+defaults:
+  - mnist_mlp_best
+
+run:
+  study: mlp_aug_affine_10deg_t05
+  goal: Test moderate rotation with mild translation augmentation on the current best MNIST MLP.
+  tags: [roadmap, mlp, mnist, current-best, augmentation, affine]
+
+dataset:
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: null
+      fill: 0

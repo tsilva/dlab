@@ -1,0 +1,67 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: mlp
+  - override /optimizer: adam
+
+task: classification
+seed: 8
+
+run:
+  stage: 01_mlp_basics
+  study: mlp_best_full
+  goal: Train the current confirmed best MNIST MLP recipe with affine augmentation, one-cycle LR scheduling, mild label smoothing, EMA weight averaging, a generous epoch cap, and validation-loss early stopping.
+  question: How far does the confirmed 1024x3 batch-norm MLP with moderate affine augmentation, one-cycle scheduling, label smoothing, and EMA train before validation loss stops improving?
+  hypothesis: The confirmed 1024x3 dropout-0.2 batch-norm recipe should reliably exceed 99% validation accuracy, with mild label smoothing and EMA giving a small accuracy lift.
+  expected_pattern: Accuracy should stay near the best observed sweep results, while smoothed validation loss is not directly comparable to unsmoothed cross-entropy runs.
+  controlled_variables: [dataset, model_architecture, optimizer, regularization, batch_size, learning_rate]
+  changed_variables: [dataset.augmentation, optimizer.scheduler, loss.label_smoothing, weight_averaging.name, trainer.max_epochs, early_stopping]
+  tags: [roadmap, mlp, mnist, current-best, best-full-run, early-stopping, batch-norm, augmentation, affine, one-cycle, label-smoothing, ema]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    hidden_dim: 1024
+    num_layers: 3
+    dropout: 0.2
+    batch_norm: true
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler:
+    name: one_cycle
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: ema
+
+trainer:
+  max_epochs: 50
+
+early_stopping:
+  enabled: true
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  verbose: true
+
+evaluation:
+  test:
+    enabled: true
+    ckpt_path: best
+  error_analysis:
+    enabled: true
+    max_examples: 128
