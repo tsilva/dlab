@@ -1,0 +1,65 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+seed: 1
+
+run:
+  stage: 02_cnn_inductive_bias
+  study: mnist_cnn_inductive_bias
+  goal: Test whether a small CNN fixes the remaining obvious MNIST mistakes made by the tuned MLP.
+  question: Does convolutional inductive bias improve MNIST validation and test accuracy over the best MLP training recipe?
+  hypothesis: A small CNN should reduce obvious digit errors because local filters and pooling encode spatial structure more efficiently than a flat MLP.
+  expected_pattern: The CNN should match or exceed the MLP test accuracy with low seed variance and fewer visually obvious errors.
+  controlled_variables: [dataset, augmentation, optimizer, scheduler, batch_size, weight_decay, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [model_architecture, seed]
+  tags: [roadmap, cnn, mnist, inductive-bias, current-best-comparison, seed-variance, test-eval, error-analysis]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    channels: [32, 64]
+    dropout: 0.1
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler:
+    name: one_cycle
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: ema
+
+trainer:
+  max_epochs: 50
+
+early_stopping:
+  enabled: true
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  verbose: true
+
+evaluation:
+  test:
+    enabled: true
+    ckpt_path: best
+  error_analysis:
+    enabled: true
+    max_examples: 128

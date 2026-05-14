@@ -135,8 +135,15 @@ def _log_example_table(
     if max_examples <= 0:
         return
 
-    datamodule.setup("predict")
-    dataloader = datamodule.test_dataloader()
+    split = str(cfg.wandb.get("table_split", "val"))
+    if split == "val":
+        datamodule.setup("fit")
+        dataloader = datamodule.val_dataloader()
+    elif split == "test":
+        datamodule.setup("test")
+        dataloader = datamodule.test_dataloader()
+    else:
+        raise ValueError("wandb.table_split must be one of: val, test")
     try:
         batch = next(iter(dataloader))
     except StopIteration:

@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - mnist_cnn_32_64_128_val
+  - _self_
+
+run:
+  study: mnist_cnn_32_64_128_val_wd0
+  question: Does removing weight decay improve the 32x64x128 CNN validation loss?
+  hypothesis: The CNN may already be regularized by augmentation, dropout, label smoothing, and EMA.
+
+optimizer:
+  weight_decay: 0.0

@@ -1,0 +1,27 @@
+# @package _global_
+name: cnn_reg_aug_val_compact_sweep
+experiment: mnist_cnn_32_64_128_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 02_cnn_inductive_bias
+  study: cnn_reg_aug_val_compact
+  question: Which compact regularization or augmentation variant improves the 32x64x128 MNIST CNN without using the test set?
+  hypothesis: The current recipe is close, but lighter label smoothing, lighter weight decay, or lighter augmentation may reduce validation loss.
+  expected_pattern: The best variants should keep high validation accuracy while improving mean validation loss over the current recipe.
+  controlled_variables: [dataset, model_architecture, optimizer, scheduler, batch_size, weight_averaging, early_stopping]
+  changed_variables: [experiment, seed]
+  tags: [roadmap, cnn, mnist, regularization, augmentation, compact-sweep, validation-only, seed-variance]
+parameters:
+  experiment:
+    - mnist_cnn_32_64_128_val
+    - mnist_cnn_32_64_128_val_ls0
+    - mnist_cnn_32_64_128_val_ls001
+    - mnist_cnn_32_64_128_val_wd0
+    - mnist_cnn_32_64_128_val_wd3e5
+    - mnist_cnn_32_64_128_val_aug5
+    - mnist_cnn_32_64_128_val_no_aug
+  seed:
+    - 1
+    - 2
+    - 3

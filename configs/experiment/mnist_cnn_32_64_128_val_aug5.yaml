@@ -1,0 +1,18 @@
+# @package _global_
+defaults:
+  - mnist_cnn_32_64_128_val
+  - _self_
+
+run:
+  study: mnist_cnn_32_64_128_val_aug5
+  question: Does lighter affine augmentation improve the 32x64x128 CNN validation loss?
+  hypothesis: A CNN may need less geometric augmentation than the tuned MLP, so 5 degrees may reduce harmful distortions.
+
+dataset:
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 5
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0

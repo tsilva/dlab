@@ -1,0 +1,36 @@
+# @package _global_
+name: cnn_best_full_test_5seed_sweep
+experiment: mnist_cnn_32_64_128_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 02_cnn_inductive_bias
+  study: cnn_best_full_test_5seed
+  question: What held-out test performance does the validation-selected 32x64x128 CNN achieve across seeds?
+  hypothesis: The validation-selected CNN should transfer its validation performance to the held-out test set with low seed variance.
+  expected_pattern: Test accuracy should be close to validation accuracy across seeds.
+  controlled_variables: [dataset, model_architecture, optimizer, scheduler, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [seed]
+  tags: [roadmap, cnn, mnist, final-test, early-stopping, seed-variance]
+parameters:
+  seed:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+  trainer:
+    max_epochs:
+      - 150
+  early_stopping:
+    patience:
+      - 8
+    min_delta:
+      - 0.0005
+  evaluation:
+    test:
+      enabled:
+        - true
+    error_analysis:
+      enabled:
+        - false
