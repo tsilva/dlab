@@ -32,6 +32,11 @@ def _build_run_name(cfg: DictConfig, study: str) -> str:
         f"lr{_format_number(cfg.optimizer.lr)}",
         f"bs{cfg.dataset.batch_size}",
     ]
+    scheduler = cfg.optimizer.get("scheduler")
+    if scheduler is not None:
+        scheduler_name = _optional_str(scheduler.get("name"))
+        if scheduler_name and scheduler_name not in {"none"}:
+            parts.append(scheduler_name)
 
     model_params = cfg.model.get("params", {})
     if "hidden_dim" in model_params:
@@ -40,12 +45,20 @@ def _build_run_name(cfg: DictConfig, study: str) -> str:
         parts.append(f"d{model_params.num_layers}")
     if "dropout" in model_params:
         parts.append(f"do{_format_number(model_params.dropout)}")
+    if "batch_norm" in model_params and model_params.batch_norm:
+        parts.append("bn")
     if "latent_dim" in model_params:
         parts.append(f"z{model_params.latent_dim}")
     if "channels" in model_params:
         parts.append("ch" + "x".join(str(width) for width in model_params.channels))
     if cfg.loss.get("beta", 1.0) != 1.0:
         parts.append(f"beta{_format_number(cfg.loss.beta)}")
+    if cfg.loss.get("label_smoothing", 0.0) != 0.0:
+        parts.append(f"ls{_format_number(cfg.loss.label_smoothing)}")
+    weight_averaging = cfg.get("weight_averaging", {})
+    weight_averaging_name = _optional_str(weight_averaging.get("name"))
+    if weight_averaging_name and weight_averaging_name not in {"none", "null"}:
+        parts.append(weight_averaging_name)
 
     sweep_name = _optional_str(cfg.run.get("sweep_name"))
     sweep_index = cfg.run.get("sweep_index")

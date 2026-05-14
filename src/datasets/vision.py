@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import pytorch_lightning as pl
 import torch
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, Subset, random_split
 from torchvision import datasets, transforms
 
 
@@ -34,6 +34,7 @@ class VisionDataModule(pl.LightningDataModule):
         normalize: bool = True,
         download: bool = True,
         pin_memory: bool | None = None,
+        augmentation: dict | None = None,
         seed: int = 1337,
     ) -> None:
         super().__init__()
@@ -48,6 +49,7 @@ class VisionDataModule(pl.LightningDataModule):
         self.normalize = normalize
         self.download = download
         self.pin_memory = torch.cuda.is_available() if pin_memory is None else pin_memory
+        self.augmentation = augmentation or {}
         self.seed = seed
         self.train_data = None
         self.val_data = None
@@ -57,8 +59,23 @@ class VisionDataModule(pl.LightningDataModule):
     def info(self) -> dict[str, object]:
         return {"input_shape": self.spec.input_shape, "num_classes": self.spec.num_classes}
 
-    def _transform(self):
-        items: list[object] = [transforms.ToTensor()]
+    def _transform(self, train: bool = False):
+        items: list[object] = []
+        if train and self.augmentation.get("enabled", False):
+            affine = self.augmentation.get("random_affine", {})
+            degrees = affine.get("degrees", 0)
+            translate = _translate_tuple(affine.get("translate", None))
+            scale = _scale_tuple(affine.get("scale", None))
+            fill = affine.get("fill", 0)
+            items.append(
+                transforms.RandomAffine(
+                    degrees=degrees,
+                    translate=translate,
+                    scale=scale,
+                    fill=fill,
+                )
+            )
+        items.append(transforms.ToTensor())
         if self.normalize:
             if self.name == "cifar10":
                 items.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261)))
@@ -71,15 +88,34 @@ class VisionDataModule(pl.LightningDataModule):
         self.spec.dataset_cls(self.data_dir, train=False, download=self.download)
 
     def setup(self, stage: str | None = None) -> None:
-        transform = self._transform()
         if stage in {None, "fit"}:
-            full = self.spec.dataset_cls(self.data_dir, train=True, transform=transform)
+            full = self.spec.dataset_cls(self.data_dir, train=True, transform=None)
             val_size = int(len(full) * self.val_split)
             train_size = len(full) - val_size
             generator = torch.Generator().manual_seed(self.seed)
-            self.train_data, self.val_data = random_split(full, [train_size, val_size], generator)
+            train_indices, val_indices = random_split(
+                range(len(full)),
+                [train_size, val_size],
+                generator,
+            )
+            train_full = self.spec.dataset_cls(
+                self.data_dir,
+                train=True,
+                transform=self._transform(train=True),
+            )
+            val_full = self.spec.dataset_cls(
+                self.data_dir,
+                train=True,
+                transform=self._transform(train=False),
+            )
+            self.train_data = Subset(train_full, train_indices.indices)
+            self.val_data = Subset(val_full, val_indices.indices)
         if stage in {None, "test", "predict"}:
-            self.test_data = self.spec.dataset_cls(self.data_dir, train=False, transform=transform)
+            self.test_data = self.spec.dataset_cls(
+                self.data_dir,
+                train=False,
+                transform=self._transform(train=False),
+            )
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
@@ -116,3 +152,25 @@ def datamodule_from_config(cfg: DictConfig, seed: int) -> VisionDataModule:
     params = dict(OmegaConf.to_container(cfg, resolve=True))
     params["seed"] = seed
     return VisionDataModule(**params)
+
+
+def _translate_tuple(value: object) -> tuple[float, float] | None:
+    if value is None:
+        return None
+    if isinstance(value, int | float):
+        return (float(value), float(value))
+    if isinstance(value, list | tuple):
+        if len(value) != 2:
+            raise ValueError("augmentation.random_affine.translate must have length 2.")
+        return (float(value[0]), float(value[1]))
+    raise TypeError("augmentation.random_affine.translate must be a number or length-2 list.")
+
+
+def _scale_tuple(value: object) -> tuple[float, float] | None:
+    if value is None:
+        return None
+    if isinstance(value, list | tuple):
+        if len(value) != 2:
+            raise ValueError("augmentation.random_affine.scale must have length 2.")
+        return (float(value[0]), float(value[1]))
+    raise TypeError("augmentation.random_affine.scale must be a length-2 list.")

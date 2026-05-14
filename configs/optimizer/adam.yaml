@@ -3,4 +3,9 @@ lr: 0.001
 weight_decay: 0.0
 params:
   betas: [0.9, 0.999]
-
+scheduler:
+  name: constant
+  eta_min: 0.0
+  pct_start: 0.25
+  div_factor: 10.0
+  final_div_factor: 100.0

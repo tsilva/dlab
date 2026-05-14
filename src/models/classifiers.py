@@ -16,6 +16,7 @@ class MLP(nn.Module):
         hidden_dim: int = 256,
         num_layers: int = 2,
         dropout: float = 0.0,
+        batch_norm: bool = False,
     ) -> None:
         super().__init__()
         if num_layers < 1:
@@ -24,7 +25,10 @@ class MLP(nn.Module):
         layers: list[nn.Module] = [nn.Flatten()]
         in_dim = input_dim
         for _ in range(num_layers):
-            layers.extend([nn.Linear(in_dim, hidden_dim), nn.ReLU()])
+            layers.append(nn.Linear(in_dim, hidden_dim))
+            if batch_norm:
+                layers.append(nn.BatchNorm1d(hidden_dim))
+            layers.append(nn.ReLU())
             if dropout > 0:
                 layers.append(nn.Dropout(dropout))
             in_dim = hidden_dim

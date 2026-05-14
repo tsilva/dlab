@@ -35,10 +35,13 @@ def run_sweep(cfg: DictConfig) -> list[int]:
     commands = []
     for index, combo in enumerate(expand_grid(params)):
         overrides = [f"{key}={format_override_value(value)}" for key, value in combo.items()]
+        base_overrides = []
+        if "experiment" not in params:
+            base_overrides.append(f"experiment={cfg.experiment}")
         command = [
             sys.executable,
             str(Path(cfg.get("train_script", "train.py"))),
-            f"experiment={cfg.experiment}",
+            *base_overrides,
             *launcher_cli_overrides(cfg),
             f"run.sweep_name={cfg.name}",
             f"run.sweep_index={index}",

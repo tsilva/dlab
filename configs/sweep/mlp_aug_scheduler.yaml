@@ -1,0 +1,31 @@
+# @package _global_
+name: mlp_aug_scheduler_sweep
+experiment: mnist_mlp_best
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_aug_scheduler
+  question: Which learning-rate schedule helps the current best augmented MNIST MLP breach 99% validation accuracy?
+  hypothesis: Cosine or one-cycle learning-rate schedules should improve the augmented MLP by preserving fast early learning while reaching a lower final validation-loss basin.
+  expected_pattern: Scheduled learning rates should match or beat constant LR on final validation loss, with one-cycle potentially reaching the highest validation accuracy on some seeds.
+  controlled_variables: [dataset, model_architecture, augmentation, optimizer, batch_size, weight_decay, early_stopping]
+  changed_variables: [optimizer.lr, optimizer.scheduler.name, seed]
+  tags: [roadmap, mlp, mnist, augmentation, scheduler, learning-rate, seed-variance]
+parameters:
+  optimizer:
+    lr:
+      - 0.001
+      - 0.0007
+      - 0.0005
+    scheduler:
+      name:
+        - constant
+        - cosine
+        - one_cycle
+  seed:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5

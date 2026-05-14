@@ -1,0 +1,41 @@
+# @package _global_
+name: mlp_batch_size_confirm_sweep
+experiment: mnist_mlp_research
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_batch_size_confirm
+  question: How does batch size affect convergence speed, validation loss, and generalization for the best MNIST MLP recipe?
+  hypothesis: Smaller batches should add useful gradient noise and may generalize slightly better, while larger batches may train faster per epoch but underperform at the fixed learning rate.
+  expected_pattern: Validation loss may be lowest at a small-to-medium batch size, with throughput improving as batch size increases.
+  controlled_variables: [dataset, model_architecture, optimizer, learning_rate, dropout, weight_decay]
+  changed_variables: [dataset.batch_size, seed]
+  tags: [roadmap, optimization, batch-size, seed-variance, confirmation]
+parameters:
+  model:
+    params:
+      hidden_dim:
+        - 512
+      num_layers:
+        - 1
+      dropout:
+        - 0.1
+  optimizer:
+    name:
+      - adam
+    lr:
+      - 0.0003
+    weight_decay:
+      - 0.0001
+  dataset:
+    batch_size:
+      - 32
+      - 64
+      - 128
+      - 256
+      - 512
+  seed:
+    - 1
+    - 2
+    - 3

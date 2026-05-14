@@ -35,11 +35,36 @@ runtime:
 loss:
   name: cross_entropy
   beta: 1.0
+  label_smoothing: 0.0
+
+weight_averaging:
+  name: none
+  ema_decay: 0.999
+  update_every_n_steps: 1
+  update_starting_at_epoch: null
 
 checkpoint:
   monitor: val/loss
   mode: min
   save_top_k: 1
+
+early_stopping:
+  enabled: false
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  check_finite: true
+  verbose: true
+
+evaluation:
+  test:
+    enabled: false
+    ckpt_path: best
+    weights_only: false
+  error_analysis:
+    enabled: false
+    max_examples: 128
 
 wandb:
   enabled: true

@@ -1,0 +1,31 @@
+# @package _global_
+name: mlp_smoothing_weight_avg_sweep
+experiment: mnist_mlp_best
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_smoothing_weight_avg
+  question: Can label smoothing, SWA, or EMA push the current best augmented MNIST MLP beyond its scheduler-tuned plateau?
+  hypothesis: Mild label smoothing and weight averaging may improve validation accuracy by reducing overconfidence and selecting flatter final weights.
+  expected_pattern: Small label smoothing should help or remain neutral, while too much smoothing or incompatible weight averaging should increase validation loss.
+  controlled_variables: [dataset, model_architecture, augmentation, optimizer, scheduler, batch_size, weight_decay, early_stopping]
+  changed_variables: [loss.label_smoothing, weight_averaging.name, seed]
+  tags: [roadmap, mlp, mnist, augmentation, label-smoothing, swa, ema, seed-variance]
+parameters:
+  loss:
+    label_smoothing:
+      - 0.0
+      - 0.02
+      - 0.05
+  weight_averaging:
+    name:
+      - none
+      - swa
+      - ema
+  seed:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5

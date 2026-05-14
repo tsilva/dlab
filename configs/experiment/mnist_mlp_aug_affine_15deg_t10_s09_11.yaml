@@ -1,0 +1,17 @@
+# @package _global_
+defaults:
+  - mnist_mlp_best
+
+run:
+  study: mlp_aug_affine_15deg_t10_s09_11
+  goal: Test strong affine augmentation on the current best MNIST MLP.
+  tags: [roadmap, mlp, mnist, current-best, augmentation, affine, scale-jitter]
+
+dataset:
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 15
+      translate: 0.1
+      scale: [0.9, 1.1]
+      fill: 0

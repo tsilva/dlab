@@ -1,0 +1,57 @@
+# @package _global_
+name: mlp_high_capacity_norm_phase1_sweep
+experiment: mnist_mlp_research
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 01_mlp_basics
+  study: mlp_high_capacity_norm_phase1
+  question: Can wider and deeper normalized MLPs move MNIST accuracy closer to the MLP ceiling?
+  hypothesis: Batch norm should make deeper high-capacity MLPs easier to optimize, while dropout should control overfitting.
+  expected_pattern: The best validation accuracy should come from a wider two-to-four-layer MLP with either batch norm, dropout, or both.
+  controlled_variables: [dataset, optimizer, learning_rate, batch_size, weight_decay, seed, early_stopping]
+  changed_variables: [model.params.hidden_dim, model.params.num_layers, model.params.dropout, model.params.batch_norm]
+  tags: [roadmap, capacity, normalization, batch-norm, mlp-ceiling, discovery]
+parameters:
+  model:
+    params:
+      hidden_dim:
+        - 1024
+        - 2048
+      num_layers:
+        - 2
+        - 3
+        - 4
+      dropout:
+        - 0.0
+        - 0.1
+        - 0.2
+      batch_norm:
+        - false
+        - true
+  optimizer:
+    name:
+      - adam
+    lr:
+      - 0.001
+    weight_decay:
+      - 0.0001
+  dataset:
+    batch_size:
+      - 512
+  seed:
+    - 1
+  trainer:
+    max_epochs:
+      - 50
+  early_stopping:
+    enabled:
+      - true
+    monitor:
+      - val/loss
+    mode:
+      - min
+    patience:
+      - 5
+    min_delta:
+      - 0.0005
