@@ -1,0 +1,66 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+seed: 1
+
+run:
+  stage: 02_cnn_inductive_bias
+  study: mnist_cnn_val_search
+  goal: Tune MNIST CNN capacity without touching the held-out test set.
+  question: Which CNN width/depth/dropout setting gives the best validation accuracy and loss under the tuned training recipe?
+  hypothesis: A moderately wider or deeper CNN should improve validation performance over the small 32x64 CNN while keeping variance controlled.
+  expected_pattern: Wider/deeper CNNs should reduce validation loss until capacity or regularization becomes unnecessary.
+  controlled_variables: [dataset, augmentation, optimizer, scheduler, batch_size, weight_decay, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [model.params.channels, model.params.dropout, seed]
+  tags: [roadmap, cnn, mnist, capacity, validation-only, seed-variance]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    channels: [32, 64]
+    dropout: 0.1
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler:
+    name: one_cycle
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: ema
+
+trainer:
+  max_epochs: 50
+
+early_stopping:
+  enabled: true
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  verbose: true
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

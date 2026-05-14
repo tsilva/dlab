@@ -1,0 +1,13 @@
+# @package _global_
+defaults:
+  - mnist_cnn_32_64_128_val
+  - _self_
+
+run:
+  study: mnist_cnn_32_64_128_val_no_aug
+  question: Does removing augmentation improve the 32x64x128 CNN validation loss?
+  hypothesis: Removing augmentation should reveal whether validation gains come from useful invariance or whether augmentation is now too strong.
+
+dataset:
+  augmentation:
+    enabled: false

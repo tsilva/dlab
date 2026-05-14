@@ -1,0 +1,29 @@
+# @package _global_
+name: cnn_capacity_val_sweep
+experiment: mnist_cnn_val_search
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 02_cnn_inductive_bias
+  study: cnn_capacity_val
+  question: Which CNN capacity setting improves MNIST validation performance without using the test set?
+  hypothesis: Moving from 32x64 to wider or deeper CNNs should improve validation loss and accuracy, but very large capacity may not help on MNIST.
+  expected_pattern: Validation loss should improve for moderate capacity increases and flatten or worsen once extra capacity is unnecessary.
+  controlled_variables: [dataset, augmentation, optimizer, scheduler, batch_size, weight_decay, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [model.params.channels, model.params.dropout, seed]
+  tags: [roadmap, cnn, mnist, capacity, validation-only, seed-variance]
+parameters:
+  model:
+    params:
+      channels:
+        - [32, 64]
+        - [64, 128]
+        - [32, 64, 128]
+        - [64, 128, 256]
+      dropout:
+        - 0.0
+        - 0.1
+  seed:
+    - 1
+    - 2
+    - 3

@@ -1,0 +1,26 @@
+# @package _global_
+name: cnn_inductive_bias_10seed_sweep
+experiment: mnist_cnn_inductive_bias
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 02_cnn_inductive_bias
+  study: cnn_inductive_bias_10seed
+  question: Does a small CNN outperform the tuned MLP on MNIST when trained with the same scheduler, augmentation, label smoothing, and EMA recipe?
+  hypothesis: CNN inductive bias should improve or stabilize test accuracy and reduce obvious mistakes relative to the tuned MLP.
+  expected_pattern: Mean test accuracy should exceed the MLP 10-seed mean of 99.447%, with fewer test misclassifications.
+  controlled_variables: [dataset, augmentation, optimizer, scheduler, batch_size, weight_decay, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [model_architecture, seed]
+  tags: [roadmap, cnn, mnist, inductive-bias, seed-variance, test-eval, error-analysis]
+parameters:
+  seed:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10

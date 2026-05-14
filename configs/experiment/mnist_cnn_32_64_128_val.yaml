@@ -1,0 +1,66 @@
+# @package _global_
+defaults:
+  - override /dataset: mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+seed: 1
+
+run:
+  stage: 02_cnn_inductive_bias
+  study: mnist_cnn_32_64_128_val
+  goal: Refine the best validation-only MNIST CNN without touching the held-out test set.
+  question: Does the current 32x64x128 CNN recipe remain best when regularization and augmentation are varied?
+  hypothesis: The 32x64x128 CNN should stay strong, with small changes to regularization or augmentation possibly improving validation loss.
+  expected_pattern: Validation loss should remain near the capacity-sweep winner, with small differences across regularization variants.
+  controlled_variables: [dataset, model_architecture, optimizer, scheduler, batch_size, weight_averaging, early_stopping]
+  changed_variables: [regularization_or_augmentation_variant, seed]
+  tags: [roadmap, cnn, mnist, regularization, augmentation, validation-only, seed-variance]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    channels: [32, 64, 128]
+    dropout: 0.1
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler:
+    name: one_cycle
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: ema
+
+trainer:
+  max_epochs: 50
+
+early_stopping:
+  enabled: true
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  verbose: true
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

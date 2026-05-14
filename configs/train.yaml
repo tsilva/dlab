@@ -76,6 +76,7 @@ wandb:
   log_code: false
   log_artifacts: true
   log_tables: true
+  table_split: val
   table_max_examples: 32
   watch:
     enabled: false
