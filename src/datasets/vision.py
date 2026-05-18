@@ -77,10 +77,8 @@ class VisionDataModule(pl.LightningDataModule):
             )
         items.append(transforms.ToTensor())
         if self.normalize:
-            if self.name == "cifar10":
-                items.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261)))
-            else:
-                items.append(transforms.Normalize((0.1307,), (0.3081,)))
+            mean, std = normalization_stats(self.name)
+            items.append(transforms.Normalize(mean, std))
         return transforms.Compose(items)
 
     def prepare_data(self) -> None:
@@ -152,6 +150,14 @@ def datamodule_from_config(cfg: DictConfig, seed: int) -> VisionDataModule:
     params = dict(OmegaConf.to_container(cfg, resolve=True))
     params["seed"] = seed
     return VisionDataModule(**params)
+
+
+def normalization_stats(dataset_name: str) -> tuple[tuple[float, ...], tuple[float, ...]]:
+    if dataset_name == "cifar10":
+        return (0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261)
+    if dataset_name == "fashion_mnist":
+        return (0.2860,), (0.3530,)
+    return (0.1307,), (0.3081,)
 
 
 def _translate_tuple(value: object) -> tuple[float, float] | None:

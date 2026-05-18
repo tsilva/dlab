@@ -1,0 +1,23 @@
+# @package _global_
+name: fashion_mnist_cnn_wide_confirm_3seed_sweep
+experiment: fashion_mnist_cnn_top1_wide_do0p2_wd1e4_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_wide_confirm_3seed
+  question: Which top wide Fashion-MNIST CNN regularization recipe is robust across seeds?
+  hypothesis: The dropout 0.2 wide CNN recipes should keep the best mean validation loss, while the dropout 0.1 variant may trade loss for accuracy.
+  expected_pattern: The winner should have the best mean validation loss with low seed variance and competitive mean validation accuracy.
+  controlled_variables: [dataset, model_architecture, optimizer, scheduler, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [experiment, seed]
+  tags: [roadmap, cnn, fashion-mnist, capacity, confirmation, validation-only, seed-variance]
+parameters:
+  experiment:
+    - fashion_mnist_cnn_top1_wide_do0p2_wd1e4_val
+    - fashion_mnist_cnn_top2_wide_do0p2_wd3e5_val
+    - fashion_mnist_cnn_top3_wide_do0p1_wd3e5_val
+  seed:
+    - 1
+    - 2
+    - 3

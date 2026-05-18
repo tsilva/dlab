@@ -28,5 +28,45 @@ def test_wandb_sweep_run_name_allows_missing_sweep_index() -> None:
 
     identity = resolve_run_identity(cfg)
 
-    assert identity.name == "mnist-mlp-mlp-lr-adam-lr0p003-bs64-w256-d2-do0p1-mlp-lr-sweep-seed1337"
-    assert identity.group == "mnist-mlp-mlp-lr"
+    assert identity.name == "mnist-mlp_lr_adam-lr0p003-bs64_w256-d2-do0p1_lr-sweep_seed1337"
+    assert identity.group == "mnist-mlp-lr"
+
+
+def test_run_name_collapses_redundant_dataset_model_and_study_prefixes() -> None:
+    cfg = OmegaConf.create(
+        {
+            "dataset": {"name": "fashion_mnist", "batch_size": 512},
+            "model": {
+                "name": "cnn",
+                "params": {
+                    "channels": [64, 128, 256],
+                    "dropout": 0.2,
+                    "convs_per_stage": 6,
+                    "batch_norm": False,
+                },
+            },
+            "optimizer": {
+                "name": "adam",
+                "lr": 0.001,
+                "scheduler": {"name": "cosine"},
+            },
+            "loss": {"beta": 1.0, "label_smoothing": 0.02},
+            "weight_averaging": {"name": "ema"},
+            "seed": 1,
+            "task": "classification",
+            "run": {
+                "study": "fashion_mnist_cnn_gradient_flow",
+                "group": None,
+                "sweep_name": "fashion_mnist_cnn_gradient_flow_depth_sweep",
+                "sweep_index": None,
+            },
+        }
+    )
+
+    identity = resolve_run_identity(cfg)
+
+    assert identity.name == (
+        "fashion-mnist-cnn_gradient-flow_adam-lr0p001-bs512-cosine_"
+        "do0p2-cps6-ch64x128x256-ls0p02-ema_depth-sweep_seed1"
+    )
+    assert identity.group == "fashion-mnist-cnn-gradient-flow"

@@ -2,4 +2,6 @@ name: cnn
 params:
   channels: [32, 64]
   dropout: 0.1
-
+  convs_per_stage: 2
+  batch_norm: true
+  residual: false

@@ -205,8 +205,16 @@ def _log_error_analysis_table(
     if max_examples <= 0:
         return
 
-    datamodule.setup("test")
-    dataloader = datamodule.test_dataloader()
+    split = str(cfg.evaluation.error_analysis.get("split", "val"))
+    if split == "val":
+        datamodule.setup("fit")
+        dataloader = datamodule.val_dataloader()
+    elif split == "test":
+        datamodule.setup("test")
+        dataloader = datamodule.test_dataloader()
+    else:
+        raise ValueError("evaluation.error_analysis.split must be one of: val, test")
+
     model = lit_module.model
     model.eval()
     table = wandb.Table(
@@ -224,13 +232,18 @@ def _log_error_analysis_table(
     )
 
     logged = 0
+    total_errors = 0
     seen = 0
+    all_labels: list[int] = []
+    all_predictions: list[int] = []
     with torch.no_grad():
         for x, y in dataloader:
             x_device = x.to(lit_module.device)
             logits = model(x_device)
             probs = torch.softmax(logits, dim=1).cpu()
             preds = torch.argmax(probs, dim=1)
+            all_labels.extend(int(label) for label in y.tolist())
+            all_predictions.extend(int(prediction) for prediction in preds.tolist())
             mistakes = preds != y
             if not bool(mistakes.any()):
                 seen += len(y)
@@ -239,6 +252,9 @@ def _log_error_analysis_table(
             images = _image_batch_for_wandb(cfg, x_device).cpu()
             top2_conf, top2_preds = probs.topk(k=2, dim=1)
             for batch_index in mistakes.nonzero(as_tuple=False).flatten().tolist():
+                total_errors += 1
+                if logged >= max_examples:
+                    continue
                 label = int(y[batch_index].item())
                 prediction = int(preds[batch_index].item())
                 table.add_data(
@@ -253,14 +269,91 @@ def _log_error_analysis_table(
                     float(top2_conf[batch_index, 1].item()),
                 )
                 logged += 1
-                if logged >= max_examples:
-                    wandb_run.summary["errors/test_misclassification_count_logged"] = logged
-                    wandb_run.log({"errors/test_misclassifications": table})
-                    return
             seen += len(y)
 
-    wandb_run.summary["errors/test_misclassification_count_logged"] = logged
-    wandb_run.log({"errors/test_misclassifications": table})
+    wandb_run.summary[f"errors/{split}_misclassification_count_logged"] = logged
+    wandb_run.summary[f"errors/{split}_misclassification_count_total"] = total_errors
+    payload = {f"errors/{split}_misclassifications": table}
+    if all_labels:
+        class_names = _class_names(datamodule, cfg.dataset.name)
+        payload[f"errors/{split}_confusion_matrix"] = wandb.plot.confusion_matrix(
+            y_true=all_labels,
+            preds=all_predictions,
+            class_names=class_names,
+        )
+        payload[f"errors/{split}_confusion_counts"] = _confusion_count_table(
+            wandb,
+            all_labels,
+            all_predictions,
+            class_names,
+        )
+    wandb_run.log(payload)
+
+
+def _confusion_count_table(
+    wandb: Any,
+    labels: list[int],
+    predictions: list[int],
+    class_names: list[str],
+) -> Any:
+    table = wandb.Table(columns=["label", "prediction", "count"])
+    counts: dict[tuple[int, int], int] = {}
+    for label, prediction in zip(labels, predictions, strict=True):
+        counts[(label, prediction)] = counts.get((label, prediction), 0) + 1
+    for label, prediction in sorted(counts):
+        table.add_data(
+            _class_name(class_names, label),
+            _class_name(class_names, prediction),
+            counts[(label, prediction)],
+        )
+    return table
+
+
+def _class_names(datamodule: Any, dataset_name: str) -> list[str]:
+    for attr in ("val_data", "test_data", "train_data"):
+        dataset = getattr(datamodule, attr, None)
+        if dataset is None:
+            continue
+        classes = getattr(dataset, "classes", None)
+        if classes is not None:
+            return [str(name) for name in classes]
+        nested_dataset = getattr(dataset, "dataset", None)
+        classes = getattr(nested_dataset, "classes", None)
+        if classes is not None:
+            return [str(name) for name in classes]
+    if dataset_name == "fashion_mnist":
+        return [
+            "T-shirt/top",
+            "Trouser",
+            "Pullover",
+            "Dress",
+            "Coat",
+            "Sandal",
+            "Shirt",
+            "Sneaker",
+            "Bag",
+            "Ankle boot",
+        ]
+    if dataset_name == "cifar10":
+        return [
+            "airplane",
+            "automobile",
+            "bird",
+            "cat",
+            "deer",
+            "dog",
+            "frog",
+            "horse",
+            "ship",
+            "truck",
+        ]
+    return [str(index) for index in range(10)]
+
+
+def _class_name(class_names: list[str], index: int) -> str:
+    if 0 <= index < len(class_names):
+        return class_names[index]
+    return str(index)
 
 
 def _log_run_artifact(
@@ -316,12 +409,11 @@ def _image_batch_for_wandb(cfg: DictConfig, x: torch.Tensor) -> torch.Tensor:
 
 
 def _unnormalize_if_needed(x: torch.Tensor, dataset_name: str) -> torch.Tensor:
-    if dataset_name == "cifar10":
-        mean = torch.tensor((0.4914, 0.4822, 0.4465), device=x.device).view(1, 3, 1, 1)
-        std = torch.tensor((0.247, 0.243, 0.261), device=x.device).view(1, 3, 1, 1)
-    else:
-        mean = torch.tensor((0.1307,), device=x.device).view(1, 1, 1, 1)
-        std = torch.tensor((0.3081,), device=x.device).view(1, 1, 1, 1)
+    from src.datasets.vision import normalization_stats
+
+    mean_values, std_values = normalization_stats(dataset_name)
+    mean = torch.tensor(mean_values, device=x.device).view(1, len(mean_values), 1, 1)
+    std = torch.tensor(std_values, device=x.device).view(1, len(std_values), 1, 1)
     return (x * std + mean).clamp(0, 1)
 
 

@@ -1,0 +1,72 @@
+# @package _global_
+defaults:
+  - override /dataset: fashion_mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+seed: 1
+
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_bn_ema_ablation
+  goal: Isolate whether deep plain CNN failure comes from BatchNorm, EMA, or their interaction.
+  question: Does the deep batch-normalized plain CNN still fail when EMA is disabled?
+  hypothesis: If the previous deep BN failure was caused by EMA/BatchNorm mismatch, disabling EMA should restore validation behavior.
+  expected_pattern: Validation accuracy should improve materially over random chance if EMA was the main problem.
+  controlled_variables: [dataset, model_architecture, optimizer, scheduler, batch_size, augmentation, label_smoothing, early_stopping]
+  changed_variables: [batch_norm, weight_averaging]
+  tags: [roadmap, cnn, fashion-mnist, depth, batch-norm, ema-ablation, gradient-flow, validation-only]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    channels: [64, 128, 256]
+    dropout: 0.2
+    convs_per_stage: 6
+    batch_norm: true
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.00003
+  scheduler:
+    name: cosine
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: none
+
+trainer:
+  max_epochs: 60
+
+early_stopping:
+  enabled: true
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  verbose: true
+
+gradient_flow:
+  enabled: true
+  log_every_n_steps: 25
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

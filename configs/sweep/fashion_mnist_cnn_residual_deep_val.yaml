@@ -1,0 +1,32 @@
+# @package _global_
+name: fashion_mnist_cnn_residual_deep_val_sweep
+experiment: fashion_mnist_cnn_residual_deep_bn_no_ema_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_residual_deep_val
+  question: Do residual connections make a depth-matched CNN competitive with the shallower Fashion-MNIST CNN winner?
+  hypothesis: Residual shortcuts should preserve gradient flow and improve validation loss over the deep plain CNN.
+  expected_pattern: A useful residual design should beat the deep plain CNN validation loss near 0.289 and approach the shallow winner near 0.265.
+  controlled_variables: [dataset, model_depth, batch_norm, scheduler, batch_size, augmentation, label_smoothing, early_stopping, no_ema, seed]
+  changed_variables: [residual_connections, optimizer.lr, optimizer.weight_decay, model.params.dropout]
+  tags: [roadmap, cnn, fashion-mnist, residual, depth, batch-norm, no-ema, validation-only]
+parameters:
+  seed:
+    - 1
+  trainer:
+    max_epochs:
+      - 100
+  optimizer:
+    lr:
+      - 0.001
+      - 0.0003
+    weight_decay:
+      - 0.00003
+      - 0.0001
+  model:
+    params:
+      dropout:
+        - 0.1
+        - 0.2

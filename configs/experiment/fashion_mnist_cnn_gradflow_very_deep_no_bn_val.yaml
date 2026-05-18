@@ -1,0 +1,72 @@
+# @package _global_
+defaults:
+  - override /dataset: fashion_mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+seed: 1
+
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_gradient_flow
+  goal: Diagnose whether deeper plain CNNs improve Fashion-MNIST before moving to residual architectures.
+  question: Does a very deep non-normalized plain CNN make gradient-flow failure obvious?
+  hypothesis: A very deep non-normalized plain CNN should show severe early-layer gradient attenuation and weak validation performance.
+  expected_pattern: Gradient min/max and first/last ratios should be much worse than the shallow baseline.
+  controlled_variables: [dataset, optimizer, scheduler, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [cnn_depth, batch_norm]
+  tags: [roadmap, cnn, fashion-mnist, depth, gradient-flow, validation-only, no-batch-norm]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    channels: [64, 128, 256]
+    dropout: 0.2
+    convs_per_stage: 10
+    batch_norm: false
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.00003
+  scheduler:
+    name: cosine
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: ema
+
+trainer:
+  max_epochs: 60
+
+early_stopping:
+  enabled: true
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  verbose: true
+
+gradient_flow:
+  enabled: true
+  log_every_n_steps: 25
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

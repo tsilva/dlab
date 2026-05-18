@@ -1,0 +1,28 @@
+# @package _global_
+name: fashion_mnist_cnn_schedule_val_sweep
+experiment: fashion_mnist_cnn_transfer_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_schedule_val
+  question: Is Fashion-MNIST performance limited by the CNN recipe, or did the transferred MNIST schedule stop too early?
+  hypothesis: Longer training and a smoother scheduler should improve Fashion-MNIST validation loss if the transferred CNN has not plateaued.
+  expected_pattern: If schedule length is the bottleneck, 100 epoch runs should lower validation loss; otherwise the next bottleneck is likely capacity or regularization.
+  controlled_variables: [dataset, model_architecture, optimizer, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [trainer.max_epochs, optimizer.scheduler.name, optimizer.lr]
+  tags: [roadmap, cnn, fashion-mnist, schedule, learning-rate, validation-only]
+parameters:
+  trainer:
+    max_epochs:
+      - 50
+      - 100
+  optimizer:
+    lr:
+      - 0.001
+      - 0.0007
+      - 0.0003
+    scheduler:
+      name:
+        - one_cycle
+        - cosine

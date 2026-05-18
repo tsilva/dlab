@@ -1,0 +1,66 @@
+# @package _global_
+defaults:
+  - override /dataset: fashion_mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+seed: 1
+
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_wide_confirm_3seed
+  goal: Confirm the best wide Fashion-MNIST CNN recipe across seeds without using the held-out test set.
+  question: Is the wide Fashion-MNIST CNN with dropout 0.1 and light weight decay robust across seeds?
+  hypothesis: Slightly lower dropout may improve accuracy but could have worse validation loss stability.
+  expected_pattern: Mean validation loss should remain near the single-seed winner, with validation accuracy around 95%.
+  controlled_variables: [dataset, model_architecture, optimizer, scheduler, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [regularization_variant, seed]
+  tags: [roadmap, cnn, fashion-mnist, capacity, confirmation, validation-only, seed-variance]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    channels: [64, 128, 256]
+    dropout: 0.1
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.00003
+  scheduler:
+    name: cosine
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: ema
+
+trainer:
+  max_epochs: 100
+
+early_stopping:
+  enabled: true
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  verbose: true
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

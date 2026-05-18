@@ -42,6 +42,7 @@ uv run python sweep.py sweep=lr launcher=modal                      # submit swe
 uv run python scripts/analyze.py summary outputs/mnist-mlp-baseline-adam-lr0p001-bs64-w256-d2-do0p1-seed1337
 uv run python scripts/analyze.py compare outputs/a outputs/b        # compare runs by validation loss
 uv run python scripts/analyze.py wandb-study mlp_lr --report        # summarize a W&B study
+uv run --with wandb-workspaces python scripts/setup_wandb_workspaces.py --entity <wandb-entity>  # create curated W&B saved views
 uv run jupyter lab                                                  # open analysis notebooks
 uv run ruff check .                                                 # lint the project
 ```
@@ -61,6 +62,15 @@ W&B is intended to be the comparison layer:
 - W&B Tables store prediction or reconstruction examples.
 - W&B Artifacts store resolved configs, metrics CSVs, checkpoints, and markdown reports.
 - `scripts/analyze.py wandb-study <study> --report` pulls matching W&B runs and writes a study report.
+- `scripts/setup_wandb_workspaces.py` creates curated saved views for daily monitoring:
+  training health, evaluation, forensics, and sweep comparison. Use `--stage <run.stage>`
+  to create stage-filtered copies and `--dry-run` to inspect the planned sections first.
+
+Example:
+
+```bash
+uv run --with wandb-workspaces python scripts/setup_wandb_workspaces.py --entity <wandb-entity> --stage 01_mlp_basics
+```
 
 ## Execution launchers
 
