@@ -1,0 +1,39 @@
+# @package _global_
+name: fashion_mnist_cnn_capacity_reg_val_sweep
+experiment: fashion_mnist_cnn_transfer_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_capacity_reg_val
+  question: Does Fashion-MNIST need more CNN capacity, less dropout, or different weight decay than the transferred MNIST recipe?
+  hypothesis: A wider CNN should improve validation loss if the current model is capacity-limited, while dropout and weight decay determine whether that extra capacity generalizes.
+  expected_pattern: Wider models should help only when regularization is strong enough; if the narrow model remains best, architecture capacity is not the main bottleneck.
+  controlled_variables: [dataset, optimizer, scheduler, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [model.params.channels, model.params.dropout, optimizer.weight_decay]
+  tags: [roadmap, cnn, fashion-mnist, capacity, regularization, validation-only]
+parameters:
+  seed:
+    - 1
+  trainer:
+    max_epochs:
+      - 100
+  optimizer:
+    lr:
+      - 0.001
+    scheduler:
+      name:
+        - cosine
+    weight_decay:
+      - 0.00003
+      - 0.0001
+      - 0.0003
+  model:
+    params:
+      channels:
+        - [32, 64, 128]
+        - [64, 128, 256]
+      dropout:
+        - 0.0
+        - 0.1
+        - 0.2

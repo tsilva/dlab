@@ -1,0 +1,66 @@
+# @package _global_
+defaults:
+  - override /dataset: fashion_mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+seed: 1
+
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_transfer_val
+  goal: Transfer the validation-selected MNIST CNN recipe to Fashion-MNIST without using the held-out test set.
+  question: How much does validation performance drop when the same CNN recipe moves from MNIST digits to Fashion-MNIST clothing?
+  hypothesis: The MNIST CNN recipe should train successfully but show lower validation accuracy and more meaningful errors on Fashion-MNIST.
+  expected_pattern: Fashion-MNIST validation accuracy should be materially lower than MNIST while still benefiting from the same convolutional recipe.
+  controlled_variables: [model_architecture, optimizer, scheduler, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [dataset, seed]
+  tags: [roadmap, cnn, fashion-mnist, dataset-difficulty, validation-only, seed-variance]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    channels: [32, 64, 128]
+    dropout: 0.1
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler:
+    name: one_cycle
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: ema
+
+trainer:
+  max_epochs: 50
+
+early_stopping:
+  enabled: true
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  verbose: true
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

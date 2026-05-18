@@ -1,0 +1,29 @@
+# @package _global_
+name: fashion_mnist_cnn_schedule_confirm_3seed_sweep
+experiment: fashion_mnist_cnn_transfer_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_schedule_confirm_3seed
+  question: Which 100-epoch learning-rate schedule is more reliable for the Fashion-MNIST CNN baseline?
+  hypothesis: The top single-seed schedules should remain close across seeds, with OneCycle slightly improving validation loss.
+  expected_pattern: Both schedules should beat the 50-epoch transfer baseline on mean validation loss if longer training is genuinely useful.
+  controlled_variables: [dataset, model_architecture, optimizer, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [optimizer.scheduler.name, seed]
+  tags: [roadmap, cnn, fashion-mnist, schedule, validation-only, seed-variance]
+parameters:
+  seed:
+    - 1
+    - 2
+    - 3
+  trainer:
+    max_epochs:
+      - 100
+  optimizer:
+    lr:
+      - 0.001
+    scheduler:
+      name:
+        - one_cycle
+        - cosine

@@ -1,0 +1,19 @@
+# @package _global_
+name: fashion_mnist_cnn_transfer_val_3seed_sweep
+experiment: fashion_mnist_cnn_transfer_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_transfer_val_3seed
+  question: How stable is the MNIST-winning CNN recipe when transferred to Fashion-MNIST?
+  hypothesis: Fashion-MNIST should expose a larger generalization gap and more seed variance than MNIST.
+  expected_pattern: Validation accuracy should be lower than MNIST but consistent enough to form a baseline for Fashion-MNIST-specific tuning.
+  controlled_variables: [dataset, model_architecture, optimizer, scheduler, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [seed]
+  tags: [roadmap, cnn, fashion-mnist, dataset-difficulty, validation-only, seed-variance]
+parameters:
+  seed:
+    - 1
+    - 2
+    - 3

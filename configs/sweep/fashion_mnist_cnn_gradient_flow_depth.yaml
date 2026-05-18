@@ -1,0 +1,20 @@
+# @package _global_
+name: fashion_mnist_cnn_gradient_flow_depth_sweep
+experiment: fashion_mnist_cnn_gradflow_shallow_bn_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_gradient_flow
+  question: Do deeper plain CNNs fail to improve Fashion-MNIST because of gradient-flow problems?
+  hypothesis: Plain depth should either fail outright without normalization or become trainable with batch norm while still not clearly improving validation loss.
+  expected_pattern: The shallow batch-normalized baseline should have healthier first-to-last and min-to-max gradient ratios than deep non-normalized CNNs.
+  controlled_variables: [dataset, optimizer, scheduler, batch_size, augmentation, label_smoothing, weight_averaging, early_stopping]
+  changed_variables: [experiment]
+  tags: [roadmap, cnn, fashion-mnist, depth, gradient-flow, validation-only]
+parameters:
+  experiment:
+    - fashion_mnist_cnn_gradflow_shallow_bn_val
+    - fashion_mnist_cnn_gradflow_deep_bn_val
+    - fashion_mnist_cnn_gradflow_deep_no_bn_val
+    - fashion_mnist_cnn_gradflow_very_deep_no_bn_val

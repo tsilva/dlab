@@ -1,0 +1,73 @@
+# @package _global_
+defaults:
+  - override /dataset: fashion_mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+seed: 1
+
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_residual_deep_val
+  goal: Test whether residual connections fix the optimization/generalization limits of deep plain CNNs on Fashion-MNIST.
+  question: Do residual connections make a depth-matched CNN competitive with the shallower Fashion-MNIST CNN winner?
+  hypothesis: Residual shortcuts should preserve gradient flow and make the deep CNN easier to optimize than the plain version.
+  expected_pattern: A useful residual design should beat the deep plain CNN validation loss near 0.289 and approach the shallow winner near 0.265.
+  controlled_variables: [dataset, model_depth, batch_norm, scheduler, batch_size, augmentation, label_smoothing, early_stopping, no_ema, seed]
+  changed_variables: [residual_connections]
+  tags: [roadmap, cnn, fashion-mnist, residual, depth, batch-norm, no-ema, validation-only]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    channels: [64, 128, 256]
+    dropout: 0.1
+    convs_per_stage: 6
+    batch_norm: true
+    residual: true
+
+optimizer:
+  lr: 0.0003
+  weight_decay: 0.00003
+  scheduler:
+    name: cosine
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: none
+
+trainer:
+  max_epochs: 100
+
+early_stopping:
+  enabled: true
+  monitor: val/loss
+  mode: min
+  patience: 5
+  min_delta: 0.0005
+  verbose: true
+
+gradient_flow:
+  enabled: true
+  log_every_n_steps: 25
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

@@ -1,0 +1,20 @@
+# @package _global_
+name: fashion_mnist_cnn_bn_ema_ablation_sweep
+experiment: fashion_mnist_cnn_gradflow_deep_bn_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_bn_ema_ablation
+  question: Is the deep plain CNN failure caused by BatchNorm, EMA, or their interaction?
+  hypothesis: Deep CNNs without BatchNorm should keep showing vanishing gradients, while deep BN may recover if EMA caused the previous validation collapse.
+  expected_pattern: Deep BN without EMA should distinguish EMA/BN mismatch from plain depth failure; deep no-BN should fail with or without EMA.
+  controlled_variables: [dataset, model_architecture, optimizer, scheduler, batch_size, augmentation, label_smoothing, early_stopping]
+  changed_variables: [experiment]
+  tags: [roadmap, cnn, fashion-mnist, depth, batch-norm, ema-ablation, gradient-flow, validation-only]
+parameters:
+  experiment:
+    - fashion_mnist_cnn_gradflow_deep_bn_val
+    - fashion_mnist_cnn_gradflow_deep_bn_no_ema_val
+    - fashion_mnist_cnn_gradflow_deep_no_bn_val
+    - fashion_mnist_cnn_gradflow_deep_no_bn_no_ema_val

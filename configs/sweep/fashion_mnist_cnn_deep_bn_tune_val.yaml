@@ -1,0 +1,33 @@
+# @package _global_
+name: fashion_mnist_cnn_deep_bn_tune_val_sweep
+experiment: fashion_mnist_cnn_gradflow_deep_bn_no_ema_val
+train_script: train.py
+stop_on_failure: true
+run:
+  stage: 03_dataset_difficulty
+  study: fashion_mnist_cnn_deep_bn_tune_val
+  question: Can a trainable deep plain batch-normalized CNN become competitive with the shallow Fashion-MNIST CNN after tuning LR, dropout, and weight decay?
+  hypothesis: Lower LR and lighter regularization may help the deep BN CNN train past the early plateau seen in the first no-EMA diagnostic.
+  expected_pattern: If plain depth is useful, at least one deep BN config should approach the shallow winner's validation loss near 0.26-0.27; otherwise plain depth is not the right next direction.
+  controlled_variables: [dataset, model_architecture, batch_norm, scheduler, batch_size, augmentation, label_smoothing, early_stopping, no_ema, seed]
+  changed_variables: [optimizer.lr, optimizer.weight_decay, model.params.dropout]
+  tags: [roadmap, cnn, fashion-mnist, depth, batch-norm, no-ema, tuning, validation-only]
+parameters:
+  seed:
+    - 1
+  trainer:
+    max_epochs:
+      - 100
+  optimizer:
+    lr:
+      - 0.001
+      - 0.0003
+    weight_decay:
+      - 0.00003
+      - 0.0001
+  model:
+    params:
+      dropout:
+        - 0.0
+        - 0.1
+        - 0.2
