@@ -37,6 +37,10 @@ datasets/*
 outputs/*
 !outputs/.gitkeep
 
+# Local one-off experiment configs
+configs/experiment/local/
+configs/sweep/local/
+
 # Experiment trackers / logs
 *.log
 wandb/
