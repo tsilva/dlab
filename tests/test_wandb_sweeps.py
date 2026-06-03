@@ -60,3 +60,20 @@ def test_agent_command_attaches_to_existing_sweep_with_launcher() -> None:
     assert "wandb_sweep.agents=1" in command
     assert "wandb_sweep.id=abc123" in command
     assert "wandb_sweep.count=1" in command
+
+
+def test_agent_command_can_attach_from_local_sweep_config() -> None:
+    cfg = OmegaConf.create(
+        {
+            "name": "cifar10_wrn28_10_seed_confirm_sweep",
+            "agent_sweep": "local/cifar10_wrn28_10_seed_confirm",
+            "backend": "wandb",
+            "wandb": {"project": "dlab", "entity": None},
+            "wandb_sweep": {"id": "abc123", "count": 1},
+            "launcher": {"name": "modal"},
+        }
+    )
+
+    command = _agent_command(cfg, "abc123")
+
+    assert "sweep=local/cifar10_wrn28_10_seed_confirm" in command

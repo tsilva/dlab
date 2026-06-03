@@ -36,6 +36,14 @@ loss:
   name: cross_entropy
   beta: 1.0
   label_smoothing: 0.0
+  mixup:
+    enabled: false
+    alpha: 0.2
+    p: 1.0
+  cutmix:
+    enabled: false
+    alpha: 1.0
+    p: 1.0
 
 weight_averaging:
   name: none
@@ -53,6 +61,19 @@ checkpoint:
   mode: min
   save_top_k: 1
 
+resume:
+  # Resume from a full Lightning checkpoint when it exists. This restores model,
+  # optimizer, scheduler, epoch/global step, and callback state.
+  enabled: false
+  ckpt_path: last
+  require_checkpoint: false
+  modal_volume:
+    # Modal jobs can write checkpoints to a mounted Volume and commit them after
+    # validation/checkpoint events so a preempted replacement container can load
+    # the latest durable last.ckpt.
+    enabled: false
+    name: null
+
 early_stopping:
   enabled: false
   monitor: val/loss
@@ -63,6 +84,23 @@ early_stopping:
   verbose: true
 
 evaluation:
+  # When true, skip trainer.fit and only run the enabled evaluation blocks below.
+  # Use this for checkpoint-only probes such as TTA or final validation/test
+  # re-evaluation of a model that was already trained.
+  only: false
+  checkpoint:
+    # Optional W&B run-output artifact containing the checkpoint to evaluate.
+    # If set, the artifact file is downloaded into the run directory and used
+    # wherever an enabled evaluation block still points at ckpt_path: best.
+    artifact: null
+    file: null
+  selection:
+    # After fitting, run validation once from the checkpoint we would actually
+    # keep. This makes W&B run summaries, sweep rankings, and post-run tables
+    # reflect the selected model instead of the final early-stopped weights.
+    enabled: true
+    ckpt_path: best
+    weights_only: false
   test:
     enabled: false
     ckpt_path: best
@@ -71,11 +109,26 @@ evaluation:
     enabled: false
     split: val
     max_examples: 128
+  tta:
+    # Post-fit test-time augmentation evaluation. This does not affect normal
+    # validation, early stopping, checkpoint selection, or training loss.
+    enabled: false
+    split: val
+    ckpt_path: best
+    weights_only: false
+    transforms: [identity, hflip]
 
 wandb:
   enabled: true
   project: dlab
   entity: null
+  # Use a deterministic W&B run id from project/entity/experiment_name so Modal
+  # preemptions resume into the same W&B run instead of creating a sibling run.
+  # Set id explicitly for a hand-picked W&B run id, or stable_id=false for W&B's
+  # generated ids.
+  id: null
+  stable_id: true
+  resume: allow
   mode: online
   log_model: false
   job_type: train

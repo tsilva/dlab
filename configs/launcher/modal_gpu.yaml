@@ -7,8 +7,27 @@ launcher:
   python_version: "3.12"
   use_uv_sync: true
   copy_source: false
+  # Keep long GPU jobs alive if the local launcher client disconnects.
+  detach: true
+  wait_for_result: true
+  nonpreemptible: false
+  volumes:
+    - name: dlab-training-runs
+      mount_path: /vol/dlab
+      create_if_missing: true
   show_progress: true
   secrets: []
+
+paths:
+  outputs_dir: /vol/dlab/outputs
+
+resume:
+  enabled: true
+  ckpt_path: last
+  require_checkpoint: false
+  modal_volume:
+    enabled: true
+    name: dlab-training-runs
 
 runtime:
   float32_matmul_precision: medium

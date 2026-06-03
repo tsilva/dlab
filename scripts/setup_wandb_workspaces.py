@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 PROJECT_DEFAULT = "dlab"
-VIEW_CHOICES = ("training", "evaluation", "forensics", "sweeps")
+VIEW_CHOICES = ("training", "evaluation", "forensics", "gradient_debug", "gradients", "sweeps")
 
 
 @dataclass(frozen=True)
@@ -81,6 +81,24 @@ def build_workspace_specs(stage: str | None = None) -> dict[str, WorkspaceSpec]:
                             ["train/grad_flow/first_to_last_ratio_step"],
                         ),
                         line("Dead gradient layers", ["train/grad_flow/dead_layers_step"]),
+                    ],
+                ),
+                SectionSpec(
+                    name="Gradient clipping",
+                    is_open=False,
+                    smoothing_type="exponential",
+                    smoothing_weight=20,
+                    panels=[
+                        line("Raw norm vs clip threshold", [
+                            "train/grad_clip/raw_norm_step",
+                            "train/grad_clip/threshold_step",
+                        ]),
+                        line("Clip coefficient", ["train/grad_clip/clip_coef_step"]),
+                        line("Steps clipped", ["train/grad_clip/was_clipped_step"]),
+                        line(
+                            "Estimated clipped norm",
+                            ["train/grad_clip/clipped_norm_estimate_step"],
+                        ),
                     ],
                 ),
             ],
@@ -171,6 +189,190 @@ def build_workspace_specs(stage: str | None = None) -> dict[str, WorkspaceSpec]:
                 ),
             ],
         ),
+        "gradients": WorkspaceSpec(
+            name=f"Gradient diagnostics{suffix}",
+            max_runs=50,
+            sections=[
+                SectionSpec(
+                    name="Clipping pressure",
+                    pinned=True,
+                    smoothing_type="exponential",
+                    smoothing_weight=20,
+                    panels=[
+                        line("Raw norm vs clip threshold", [
+                            "train/grad_clip/raw_norm_step",
+                            "train/grad_clip/threshold_step",
+                            "train/grad_norm",
+                        ]),
+                        line("Clip coefficient", [
+                            "train/grad_clip/clip_coef_step",
+                            "train/grad_clip/clip_coef_epoch",
+                        ]),
+                        line("Clipping frequency", [
+                            "train/grad_clip/was_clipped_step",
+                            "train/grad_clip/was_clipped_epoch",
+                        ]),
+                        line("Estimated clipped norm", [
+                            "train/grad_clip/clipped_norm_estimate_step",
+                            "train/grad_clip/clipped_norm_estimate_epoch",
+                        ]),
+                        scalar("Mean clip coefficient", "train/grad_clip/clip_coef_epoch"),
+                        scalar("Mean clipped-step fraction", "train/grad_clip/was_clipped_epoch"),
+                    ],
+                ),
+                SectionSpec(
+                    name="Layer gradient flow",
+                    smoothing_type="exponential",
+                    smoothing_weight=20,
+                    panels=[
+                        line("First / middle / last layer grad norm", [
+                            "train/grad_flow/first_layer_norm_step",
+                            "train/grad_flow/middle_layer_norm_step",
+                            "train/grad_flow/last_layer_norm_step",
+                        ]),
+                        line("Min / max layer grad norm", [
+                            "train/grad_flow/min_layer_norm_step",
+                            "train/grad_flow/max_layer_norm_step",
+                        ]),
+                        line("Layer balance ratios", [
+                            "train/grad_flow/first_to_last_ratio_step",
+                            "train/grad_flow/min_to_max_ratio_step",
+                        ]),
+                        line("Dead gradient layers", ["train/grad_flow/dead_layers_step"]),
+                        scalar("Layer count", "train/grad_flow/layer_count_epoch"),
+                        scalar("Final dead layers", "train/grad_flow/dead_layers_epoch"),
+                    ],
+                ),
+                SectionSpec(
+                    name="Optimization context",
+                    panels=[
+                        line("Train and validation loss", [
+                            "train/loss_step",
+                            "train/loss_epoch",
+                            "val/loss",
+                        ]),
+                        line("Train and validation accuracy", [
+                            "train/acc_step",
+                            "train/acc_epoch",
+                            "val/acc",
+                        ]),
+                        line("Learning rate", ["train/lr", "lr-Adam", "lr-AdamW", "lr-SGD"]),
+                        line("Generalization gap", ["generalization/loss_gap"]),
+                        line("Resume event", ["resume/event"]),
+                    ],
+                ),
+                SectionSpec(
+                    name="Post-hoc probes",
+                    is_open=False,
+                    smoothing_type="exponential",
+                    smoothing_weight=20,
+                    panels=[
+                        line("Post-hoc train gradient norms", [
+                            "posthoc/grad_flow/train/total_param_grad_norm",
+                            "posthoc/grad_flow/train/first_layer_norm",
+                            "posthoc/grad_flow/train/last_layer_norm",
+                        ]),
+                        line("Post-hoc val gradient norms", [
+                            "posthoc/grad_flow/val/total_param_grad_norm",
+                            "posthoc/grad_flow/val/first_layer_norm",
+                            "posthoc/grad_flow/val/last_layer_norm",
+                        ]),
+                        line("Post-hoc dead layers", [
+                            "posthoc/grad_flow/train/dead_layers_1e-8",
+                            "posthoc/grad_flow/val/dead_layers_1e-8",
+                        ]),
+                    ],
+                ),
+            ],
+        ),
+        "gradient_debug": WorkspaceSpec(
+            name=f"Minimal gradient debug{suffix}",
+            max_runs=20,
+            sections=[
+                SectionSpec(
+                    name="1. High-leverage graph scan",
+                    pinned=True,
+                    panels=[
+                        line("Train vs validation accuracy", ["train/acc_epoch", "val/acc"]),
+                        line("Train vs validation loss", ["train/loss_epoch", "val/loss"]),
+                        line("Raw norm vs clip threshold", [
+                            "train/grad_clip/raw_norm_step",
+                            "train/grad_clip/threshold_step",
+                        ]),
+                        line("Clip coefficient kept", ["train/grad_clip/clip_coef_step"]),
+                        line("First vs last layer grad norm", [
+                            "train/grad_flow/first_layer_norm_step",
+                            "train/grad_flow/last_layer_norm_step",
+                        ]),
+                        line(
+                            "First-to-last grad ratio",
+                            ["train/grad_flow/first_to_last_ratio_step"],
+                        ),
+                        line("Resume event", ["resume/event"]),
+                    ],
+                ),
+                SectionSpec(
+                    name="2. Outcome cards",
+                    panels=[
+                        bar(
+                            "Final train vs validation accuracy",
+                            ["train/acc_epoch", "val/acc"],
+                            range_x=(0.0, 1.0),
+                        ),
+                        bar(
+                            "Final train vs validation loss",
+                            ["train/loss_epoch", "val/loss"],
+                        ),
+                        bar(
+                            "Final clipping summary",
+                            [
+                                "train/grad_clip/clip_coef_epoch",
+                                "train/grad_clip/was_clipped_epoch",
+                            ],
+                            range_x=(0.0, 1.0),
+                        ),
+                    ],
+                ),
+                SectionSpec(
+                    name="3. Secondary failure checks",
+                    smoothing_type="exponential",
+                    smoothing_weight=20,
+                    panels=[
+                        line("Clipped step fraction", ["train/grad_clip/was_clipped_step"]),
+                        line("Min vs max layer grad norm", [
+                            "train/grad_flow/min_layer_norm_step",
+                            "train/grad_flow/max_layer_norm_step",
+                        ]),
+                        line("Dead gradient layers", ["train/grad_flow/dead_layers_step"]),
+                    ],
+                ),
+                SectionSpec(
+                    name="4. Error analysis",
+                    panels=[
+                        media("Validation misclassifications", ["errors/val_misclassifications"]),
+                        media("Validation confusion matrix", ["errors/val_confusion_matrix"]),
+                        scalar(
+                            "Validation errors logged",
+                            "errors/val_misclassification_count_logged",
+                        ),
+                        scalar(
+                            "Validation errors total",
+                            "errors/val_misclassification_count_total",
+                        ),
+                    ],
+                ),
+                SectionSpec(
+                    name="5. Context",
+                    is_open=False,
+                    panels=[
+                        line("Learning rate", ["train/lr", "lr-Adam", "lr-AdamW", "lr-SGD"]),
+                        scalar("Trainable params", "params/trainable"),
+                        scalar("Runtime seconds", "runtime/seconds"),
+                        PanelSpec("RunComparer", {"diff_only": "split"}),
+                    ],
+                ),
+            ],
+        ),
         "sweeps": WorkspaceSpec(
             name=f"Sweep comparison{suffix}",
             max_runs=100,
@@ -230,6 +432,22 @@ def line(title: str, y: list[str]) -> PanelSpec:
 
 def scalar(title: str, metric: str) -> PanelSpec:
     return PanelSpec("ScalarChart", {"title": title, "metric": metric, "groupby_aggfunc": "mean"})
+
+
+def bar(
+    title: str,
+    metrics: list[str],
+    range_x: tuple[float | None, float | None] = (None, None),
+) -> PanelSpec:
+    return PanelSpec(
+        "BarPlot",
+        {
+            "title": title,
+            "metrics": metrics,
+            "range_x": range_x,
+            "groupby_aggfunc": "mean",
+        },
+    )
 
 
 def media(title: str, media_keys: list[str]) -> PanelSpec:

@@ -21,7 +21,7 @@ def wandb_tags(cfg: DictConfig) -> list[str]:
         value = cfg.run.get(key)
         if value:
             tags.append(str(value))
-    return sorted({tag for tag in tags if tag})
+    return sorted({_wandb_tag(tag) for tag in tags if tag})
 
 
 def wandb_notes(cfg: DictConfig) -> str | None:
@@ -36,6 +36,14 @@ def wandb_notes(cfg: DictConfig) -> str | None:
         if value:
             lines.append(f"{label}: {value}")
     return "\n".join(lines) if lines else None
+
+
+def _wandb_tag(tag: str, max_length: int = 64) -> str:
+    if len(tag) <= max_length:
+        return tag
+    digest = hashlib.sha1(tag.encode("utf-8")).hexdigest()[:8]
+    prefix_length = max_length - len(digest) - 1
+    return f"{tag[:prefix_length]}-{digest}"
 
 
 def parameter_count(model: torch.nn.Module) -> dict[str, int]:
@@ -97,6 +105,7 @@ def log_wandb_post_run(
     run_dir: str | Path,
     report_path: str | None,
     elapsed_seconds: float,
+    extra_summary: dict[str, Any] | None = None,
 ) -> None:
     if not cfg.wandb.get("enabled", False):
         return
@@ -106,6 +115,8 @@ def log_wandb_post_run(
 
     run_dir = Path(run_dir)
     summary = summarize_training_run(trainer, lit_module.model, elapsed_seconds)
+    if extra_summary:
+        summary.update(extra_summary)
     for key, value in summary.items():
         wandb_run.summary[key] = value
 
@@ -149,10 +160,11 @@ def _log_example_table(
     except StopIteration:
         return
 
-    x, y = batch
-    x = x[:max_examples].to(lit_module.device)
-    y = y[:max_examples]
     model = lit_module.model
+    device = _model_device(model, fallback=lit_module.device)
+    x, y = batch
+    x = x[:max_examples].to(device)
+    y = y[:max_examples]
     model.eval()
     with torch.no_grad():
         output = model(x)
@@ -216,6 +228,7 @@ def _log_error_analysis_table(
         raise ValueError("evaluation.error_analysis.split must be one of: val, test")
 
     model = lit_module.model
+    device = _model_device(model, fallback=lit_module.device)
     model.eval()
     table = wandb.Table(
         columns=[
@@ -238,7 +251,7 @@ def _log_error_analysis_table(
     all_predictions: list[int] = []
     with torch.no_grad():
         for x, y in dataloader:
-            x_device = x.to(lit_module.device)
+            x_device = x.to(device)
             logits = model(x_device)
             probs = torch.softmax(logits, dim=1).cpu()
             preds = torch.argmax(probs, dim=1)
@@ -288,6 +301,13 @@ def _log_error_analysis_table(
             class_names,
         )
     wandb_run.log(payload)
+
+
+def _model_device(model: torch.nn.Module, *, fallback: torch.device | str) -> torch.device:
+    try:
+        return next(model.parameters()).device
+    except StopIteration:
+        return torch.device(fallback)
 
 
 def _confusion_count_table(
@@ -377,7 +397,8 @@ def _log_run_artifact(
         artifact.add_file(str(config_path), name="config.yaml")
     metrics_matches = sorted(run_dir.glob("**/metrics.csv"))
     for metrics_path in metrics_matches:
-        artifact.add_file(str(metrics_path), name=f"metrics/{metrics_path.name}")
+        metrics_name = metrics_path.relative_to(run_dir).as_posix()
+        artifact.add_file(str(metrics_path), name=f"metrics/{metrics_name}")
     checkpoint_dir = run_dir / "checkpoints"
     if checkpoint_dir.exists():
         artifact.add_dir(str(checkpoint_dir), name="checkpoints")

@@ -1,5 +1,15 @@
 name: resnet18
 params:
+  # timm model id. The default `resnet18` uses the ImageNet-style stem:
+  # 7x7 stride-2 conv, BatchNorm, ReLU, then 3x3 stride-2 maxpool.
   model_name: resnet18
+
+  # Keep pretrained off for controlled dataset-difficulty experiments. Enabling
+  # this would change the question from architecture/training behavior to
+  # transfer learning.
   pretrained: false
 
+  # Optional generic stem override. Leave null to preserve the timm default.
+  # Experiments can set this to compare input-stem geometry without hardcoding
+  # dataset-specific behavior in the model code.
+  stem: null

@@ -25,12 +25,15 @@ class ModalLauncher:
         app = modal.App(str(launcher.get("app_name", "dlab-train")))
         image = _build_modal_image(modal, launcher)
         secrets = _modal_secrets(modal, cfg)
+        volumes = _modal_volumes(modal, launcher)
 
         @app.function(
             image=image,
             gpu=launcher.get("gpu"),
             timeout=int(launcher.get("timeout_seconds", 7200)),
             secrets=secrets,
+            volumes=volumes,
+            nonpreemptible=bool(launcher.get("nonpreemptible", False)),
             serialized=True,
         )
         def remote_train(config_yaml: str) -> dict:
@@ -44,7 +47,19 @@ class ModalLauncher:
             modal.enable_output() if bool(launcher.get("show_progress", True)) else _nullcontext()
         )
         with context:
-            with app.run():
+            with app.run(detach=bool(launcher.get("detach", False))):
+                if not bool(launcher.get("wait_for_result", True)):
+                    call = remote_train.spawn(config_yaml)
+                    dashboard_url = _function_call_dashboard_url(call)
+                    if dashboard_url:
+                        print(f"Submitted Modal function call: {dashboard_url}", flush=True)
+                    return RunResult(
+                        run_dir=str(cfg.paths.outputs_dir),
+                        metrics={
+                            "modal/function_call_id": str(getattr(call, "object_id", "")),
+                            "modal/function_call_dashboard_url": dashboard_url,
+                        },
+                    )
                 result = remote_train.remote(config_yaml)
         return RunResult(**result)
 
@@ -77,6 +92,18 @@ def _modal_secrets(modal, cfg: DictConfig) -> list:
     return secrets
 
 
+def _modal_volumes(modal, launcher: DictConfig) -> dict:
+    volumes = {}
+    for volume_cfg in launcher.get("volumes", []):
+        name = str(volume_cfg.get("name"))
+        mount_path = str(volume_cfg.get("mount_path"))
+        volumes[mount_path] = modal.Volume.from_name(
+            name,
+            create_if_missing=bool(volume_cfg.get("create_if_missing", False)),
+        )
+    return volumes
+
+
 def _wandb_env() -> dict[str, str]:
     api_key = os.environ.get("WANDB_API_KEY") or _wandb_api_key_from_netrc()
     passthrough_names = (
@@ -94,6 +121,13 @@ def _wandb_env() -> dict[str, str]:
     if api_key:
         env["WANDB_API_KEY"] = api_key
     return env
+
+
+def _function_call_dashboard_url(call) -> str | None:
+    try:
+        return call.get_dashboard_url()
+    except Exception:
+        return None
 
 
 def _wandb_api_key_from_netrc() -> str | None:

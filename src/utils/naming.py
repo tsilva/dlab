@@ -62,10 +62,20 @@ def _build_run_name(cfg: DictConfig, study: str, base_slug: str, raw_study: str)
         details_parts.append(f"z{model_params.latent_dim}")
     if "channels" in model_params:
         details_parts.append("ch" + "x".join(str(width) for width in model_params.channels))
+    if "depth" in model_params:
+        details_parts.append(f"d{model_params.depth}")
+    if "width_factor" in model_params:
+        details_parts.append(f"k{model_params.width_factor}")
     if cfg.loss.get("beta", 1.0) != 1.0:
         details_parts.append(f"beta{_format_number(cfg.loss.beta)}")
     if cfg.loss.get("label_smoothing", 0.0) != 0.0:
         details_parts.append(f"ls{_format_number(cfg.loss.label_smoothing)}")
+    mixup = cfg.loss.get("mixup", {})
+    if mixup.get("enabled", False):
+        details_parts.append(f"mixup{_format_number(mixup.get('alpha', 0.2))}")
+    cutmix = cfg.loss.get("cutmix", {})
+    if cutmix.get("enabled", False):
+        details_parts.append(f"cutmix{_format_number(cutmix.get('alpha', 1.0))}")
     weight_averaging = cfg.get("weight_averaging", {})
     weight_averaging_name = _optional_str(weight_averaging.get("name"))
     if weight_averaging_name and weight_averaging_name not in {"none", "null"}:

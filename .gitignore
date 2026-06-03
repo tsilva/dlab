@@ -51,14 +51,31 @@ outputs/litlogger/
 # Local scratch/cache
 .cache/
 .flash/
+.modal/
+.runpod/
 tmp/
 temp/
+*.tmp
+*.temp
+*.swp
+*.swo
 
 # Model artifacts
 *.ckpt
 *.pt
 *.pth
 *.safetensors
+*.onnx
+*.tflite
+*.engine
+
+# Serialized/generated analysis artifacts
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.parquet
 
 # Profiling artifacts
 *.prof

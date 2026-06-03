@@ -1,0 +1,14 @@
+name: wide_resnet
+params:
+  # CIFAR-style WideResNet depth. Valid depths follow depth = 6n + 4 because
+  # the network has three residual stages with two convolutions per block.
+  depth: 28
+
+  # Widening multiplier k. `4` is a cost-conscious first probe; `10` is the
+  # classic high-capacity WRN-28-10 follow-up if the smaller model is promising.
+  width_factor: 4
+
+  # Residual-block dropout from the original WRN design. Keep this off for the
+  # first architecture-only probe because MixUp, label smoothing, ColorJitter,
+  # weight decay, and early stopping are already active.
+  dropout: 0.0

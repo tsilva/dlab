@@ -71,6 +71,12 @@ def test_modal_launcher_uses_serialized_nested_function(monkeypatch) -> None:
         def remote(self, _config_yaml: str) -> dict:
             return {"run_dir": "outputs/fake", "metrics": {}}
 
+        def spawn(self, _config_yaml: str):
+            return SimpleNamespace(
+                object_id="fc-123",
+                get_dashboard_url=lambda: "https://modal.test/call/fc-123",
+            )
+
     class FakeApp:
         def __init__(self, name: str) -> None:
             calls["app_name"] = name
@@ -83,7 +89,8 @@ def test_modal_launcher_uses_serialized_nested_function(monkeypatch) -> None:
 
             return decorator
 
-        def run(self):
+        def run(self, **kwargs):
+            calls["run_kwargs"] = kwargs
             return self
 
         def __enter__(self):
@@ -117,6 +124,9 @@ def test_modal_launcher_uses_serialized_nested_function(monkeypatch) -> None:
         App=FakeApp,
         Image=FakeImage,
         Secret=SimpleNamespace(from_name=lambda name: name),
+        Volume=SimpleNamespace(
+            from_name=lambda name, create_if_missing=False: (name, create_if_missing)
+        ),
     )
     monkeypatch.setitem(sys.modules, "modal", fake_modal)
 
@@ -130,6 +140,16 @@ def test_modal_launcher_uses_serialized_nested_function(monkeypatch) -> None:
                 "python_version": "3.12",
                 "use_uv_sync": True,
                 "copy_source": False,
+                "detach": True,
+                "wait_for_result": True,
+                "nonpreemptible": True,
+                "volumes": [
+                    {
+                        "name": "dlab-training-runs",
+                        "mount_path": "/vol/dlab",
+                        "create_if_missing": True,
+                    }
+                ],
                 "show_progress": False,
                 "secrets": [],
             }
@@ -140,8 +160,96 @@ def test_modal_launcher_uses_serialized_nested_function(monkeypatch) -> None:
 
     assert result.run_dir == "outputs/fake"
     assert calls["function_kwargs"]["serialized"] is True
+    assert calls["function_kwargs"]["nonpreemptible"] is True
+    assert calls["function_kwargs"]["volumes"] == {
+        "/vol/dlab": ("dlab-training-runs", True),
+    }
+    assert calls["run_kwargs"] == {"detach": True}
     assert calls["source"] == ("src", False)
     assert build_steps == ["uv_sync", "workdir", "add_local_python_source"]
+
+
+def test_modal_launcher_can_submit_without_waiting(monkeypatch) -> None:
+    calls = {}
+
+    class FakeRemoteFunction:
+        def remote(self, _config_yaml: str) -> dict:
+            raise AssertionError("fire-and-forget launch should not wait for remote result")
+
+        def spawn(self, _config_yaml: str):
+            calls["spawned"] = True
+            return SimpleNamespace(
+                object_id="fc-123",
+                get_dashboard_url=lambda: "https://modal.test/call/fc-123",
+            )
+
+    class FakeApp:
+        def __init__(self, name: str) -> None:
+            calls["app_name"] = name
+
+        def function(self, **_kwargs):
+            def decorator(_func):
+                return FakeRemoteFunction()
+
+            return decorator
+
+        def run(self, **kwargs):
+            calls["run_kwargs"] = kwargs
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            return False
+
+    class FakeImage:
+        @classmethod
+        def debian_slim(cls, python_version: str):
+            return cls()
+
+        def uv_sync(self, _path: str):
+            return self
+
+        def add_local_python_source(self, _module: str, copy: bool):
+            return self
+
+        def workdir(self, _path: str):
+            return self
+
+    fake_modal = SimpleNamespace(
+        App=FakeApp,
+        Image=FakeImage,
+        Secret=SimpleNamespace(from_name=lambda name: name),
+    )
+    monkeypatch.setitem(sys.modules, "modal", fake_modal)
+
+    cfg = OmegaConf.create(
+        {
+            "paths": {"outputs_dir": "outputs"},
+            "launcher": {
+                "name": "modal",
+                "app_name": "dlab-test",
+                "gpu": "L4",
+                "timeout_seconds": 60,
+                "python_version": "3.12",
+                "use_uv_sync": True,
+                "copy_source": False,
+                "detach": True,
+                "wait_for_result": False,
+                "show_progress": False,
+                "secrets": [],
+            },
+        }
+    )
+
+    result = ModalLauncher().launch_experiment(cfg)
+
+    assert calls["spawned"] is True
+    assert calls["run_kwargs"] == {"detach": True}
+    assert result.run_dir == "outputs"
+    assert result.metrics["modal/function_call_id"] == "fc-123"
+    assert result.metrics["modal/function_call_dashboard_url"] == "https://modal.test/call/fc-123"
 
 
 def test_runpod_flash_launcher_uses_deployable_endpoint_module(monkeypatch) -> None:
