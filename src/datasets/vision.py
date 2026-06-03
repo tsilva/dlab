@@ -62,20 +62,95 @@ class VisionDataModule(pl.LightningDataModule):
     def _transform(self, train: bool = False):
         items: list[object] = []
         if train and self.augmentation.get("enabled", False):
-            affine = self.augmentation.get("random_affine", {})
-            degrees = affine.get("degrees", 0)
-            translate = _translate_tuple(affine.get("translate", None))
-            scale = _scale_tuple(affine.get("scale", None))
-            fill = affine.get("fill", 0)
-            items.append(
-                transforms.RandomAffine(
-                    degrees=degrees,
-                    translate=translate,
-                    scale=scale,
-                    fill=fill,
+            crop = self.augmentation.get("random_crop")
+            if crop is not None:
+                if "size" not in crop:
+                    raise ValueError("augmentation.random_crop.size is required.")
+                items.append(
+                    transforms.RandomCrop(
+                        size=_int_or_pair(crop["size"], "augmentation.random_crop.size"),
+                        padding=_optional_int_or_tuple(
+                            crop.get("padding", None),
+                            "augmentation.random_crop.padding",
+                        ),
+                        pad_if_needed=bool(crop.get("pad_if_needed", False)),
+                        fill=crop.get("fill", 0),
+                        padding_mode=crop.get("padding_mode", "constant"),
+                    )
                 )
-            )
+            horizontal_flip = self.augmentation.get("horizontal_flip")
+            if horizontal_flip is not None:
+                items.append(
+                    transforms.RandomHorizontalFlip(
+                        p=_probability(
+                            horizontal_flip.get("p", 0.5),
+                            "augmentation.horizontal_flip.p",
+                        )
+                    )
+                )
+            color_jitter = self.augmentation.get("color_jitter")
+            if color_jitter is not None:
+                items.append(
+                    transforms.ColorJitter(
+                        brightness=color_jitter.get("brightness", 0),
+                        contrast=color_jitter.get("contrast", 0),
+                        saturation=color_jitter.get("saturation", 0),
+                        hue=color_jitter.get("hue", 0),
+                    )
+                )
+            rand_augment = self.augmentation.get("rand_augment")
+            if rand_augment is not None:
+                items.append(
+                    transforms.RandAugment(
+                        num_ops=int(rand_augment.get("num_ops", 2)),
+                        magnitude=int(rand_augment.get("magnitude", 9)),
+                        num_magnitude_bins=int(rand_augment.get("num_magnitude_bins", 31)),
+                        interpolation=_interpolation_mode(
+                            rand_augment.get("interpolation", "nearest"),
+                            "augmentation.rand_augment.interpolation",
+                        ),
+                        fill=rand_augment.get("fill"),
+                    )
+                )
+            trivial_augment = self.augmentation.get("trivial_augment")
+            if trivial_augment is not None:
+                items.append(
+                    transforms.TrivialAugmentWide(
+                        num_magnitude_bins=int(trivial_augment.get("num_magnitude_bins", 31)),
+                        interpolation=_interpolation_mode(
+                            trivial_augment.get("interpolation", "nearest"),
+                            "augmentation.trivial_augment.interpolation",
+                        ),
+                        fill=trivial_augment.get("fill"),
+                    )
+                )
+            affine = self.augmentation.get("random_affine")
+            if affine is not None:
+                degrees = affine.get("degrees", 0)
+                translate = _translate_tuple(affine.get("translate", None))
+                scale = _scale_tuple(affine.get("scale", None))
+                fill = affine.get("fill", 0)
+                items.append(
+                    transforms.RandomAffine(
+                        degrees=degrees,
+                        translate=translate,
+                        scale=scale,
+                        fill=fill,
+                    )
+                )
         items.append(transforms.ToTensor())
+        if train and self.augmentation.get("enabled", False):
+            erasing = self.augmentation.get("random_erasing")
+            if erasing is not None:
+                items.append(
+                    transforms.RandomErasing(
+                        p=_probability(erasing.get("p", 0.5), "augmentation.random_erasing.p"),
+                        scale=_float_pair(erasing.get("scale", (0.02, 0.33))),
+                        ratio=_float_pair(erasing.get("ratio", (0.3, 3.3))),
+                        value=erasing.get("value", 0),
+                        inplace=bool(erasing.get("inplace", False)),
+                    )
+                )
         if self.normalize:
             mean, std = normalization_stats(self.name)
             items.append(transforms.Normalize(mean, std))
@@ -180,3 +255,52 @@ def _scale_tuple(value: object) -> tuple[float, float] | None:
             raise ValueError("augmentation.random_affine.scale must have length 2.")
         return (float(value[0]), float(value[1]))
     raise TypeError("augmentation.random_affine.scale must be a length-2 list.")
+
+
+def _int_or_pair(value: object, field_name: str) -> int | tuple[int, int]:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, list | tuple):
+        if len(value) != 2:
+            raise ValueError(f"{field_name} must be an int or length-2 list.")
+        return (int(value[0]), int(value[1]))
+    raise TypeError(f"{field_name} must be an int or length-2 list.")
+
+
+def _optional_int_or_tuple(value: object, field_name: str) -> int | tuple[int, ...] | None:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, list | tuple):
+        if not value:
+            raise ValueError(f"{field_name} must not be empty.")
+        return tuple(int(item) for item in value)
+    raise TypeError(f"{field_name} must be an int or list.")
+
+
+def _probability(value: object, field_name: str) -> float:
+    probability = float(value)
+    if probability < 0.0 or probability > 1.0:
+        raise ValueError(f"{field_name} must be between 0 and 1.")
+    return probability
+
+
+def _float_pair(value: object) -> tuple[float, float]:
+    if isinstance(value, list | tuple):
+        if len(value) != 2:
+            raise ValueError("Expected a length-2 list.")
+        return (float(value[0]), float(value[1]))
+    raise TypeError("Expected a length-2 list.")
+
+
+def _interpolation_mode(value: object, field_name: str) -> transforms.InterpolationMode:
+    name = str(value).lower()
+    modes = {
+        "nearest": transforms.InterpolationMode.NEAREST,
+        "bilinear": transforms.InterpolationMode.BILINEAR,
+        "bicubic": transforms.InterpolationMode.BICUBIC,
+    }
+    if name not in modes:
+        raise ValueError(f"{field_name} must be one of {sorted(modes)}.")
+    return modes[name]

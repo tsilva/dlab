@@ -116,7 +116,7 @@ def _agent_command(cfg: DictConfig, sweep_id: str) -> list[str]:
     command = [
         sys.executable,
         "sweep.py",
-        f"sweep={_sweep_config_name(cfg)}",
+        f"sweep={_agent_sweep_config_name(cfg)}",
         "backend=wandb",
         "wandb_sweep.create=false",
         "wandb_sweep.start_agent=true",
@@ -133,6 +133,13 @@ def _agent_command(cfg: DictConfig, sweep_id: str) -> list[str]:
     if cfg.wandb.get("entity") is not None:
         command.append(f"wandb.entity={cfg.wandb.entity}")
     return command
+
+
+def _agent_sweep_config_name(cfg: DictConfig) -> str:
+    configured = cfg.get("agent_sweep")
+    if configured is not None:
+        return str(configured)
+    return _sweep_config_name(cfg)
 
 
 def _sweep_config_name(cfg: DictConfig) -> str:

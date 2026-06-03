@@ -130,7 +130,147 @@ class _ResidualConvBlock(nn.Module):
         return self.activation(self.main(x) + self.projection(x))
 
 
-class ResNetClassifier(nn.Module):
+class WideResNet(nn.Module):
+    task = "classification"
+
+    def __init__(
+        self,
+        depth: int = 28,
+        width_factor: int = 4,
+        dropout: float = 0.0,
+        in_channels: int = 3,
+        num_classes: int = 10,
+    ) -> None:
+        super().__init__()
+        if (depth - 4) % 6 != 0:
+            raise ValueError("WideResNet depth must satisfy depth = 6n + 4.")
+        if width_factor < 1:
+            raise ValueError("WideResNet width_factor must be >= 1.")
+
+        blocks_per_stage = (depth - 4) // 6
+        widths = [16, 16 * width_factor, 32 * width_factor, 64 * width_factor]
+
+        self.conv1 = nn.Conv2d(in_channels, widths[0], kernel_size=3, padding=1, bias=False)
+        self.stage1 = self._make_stage(
+            blocks_per_stage,
+            in_channels=widths[0],
+            out_channels=widths[1],
+            stride=1,
+            dropout=dropout,
+        )
+        self.stage2 = self._make_stage(
+            blocks_per_stage,
+            in_channels=widths[1],
+            out_channels=widths[2],
+            stride=2,
+            dropout=dropout,
+        )
+        self.stage3 = self._make_stage(
+            blocks_per_stage,
+            in_channels=widths[2],
+            out_channels=widths[3],
+            stride=2,
+            dropout=dropout,
+        )
+        self.bn = nn.BatchNorm2d(widths[3])
+        self.activation = nn.ReLU(inplace=True)
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.classifier = nn.Linear(widths[3], num_classes)
+
+        self._init_weights()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.conv1(x)
+        x = self.stage1(x)
+        x = self.stage2(x)
+        x = self.stage3(x)
+        x = self.activation(self.bn(x))
+        x = self.pool(x).flatten(1)
+        return self.classifier(x)
+
+    def first_layer_filters(self) -> torch.Tensor | None:
+        return self.conv1.weight.detach().cpu()
+
+    def _make_stage(
+        self,
+        blocks_per_stage: int,
+        *,
+        in_channels: int,
+        out_channels: int,
+        stride: int,
+        dropout: float,
+    ) -> nn.Sequential:
+        blocks: list[nn.Module] = [
+            _WideResNetBlock(in_channels, out_channels, stride=stride, dropout=dropout)
+        ]
+        blocks.extend(
+            _WideResNetBlock(out_channels, out_channels, stride=1, dropout=dropout)
+            for _ in range(blocks_per_stage - 1)
+        )
+        return nn.Sequential(*blocks)
+
+    def _init_weights(self) -> None:
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d):
+                nn.init.kaiming_normal_(module.weight, mode="fan_out", nonlinearity="relu")
+            elif isinstance(module, nn.BatchNorm2d):
+                nn.init.ones_(module.weight)
+                nn.init.zeros_(module.bias)
+            elif isinstance(module, nn.Linear):
+                nn.init.zeros_(module.bias)
+
+
+class _WideResNetBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        *,
+        stride: int,
+        dropout: float,
+    ) -> None:
+        super().__init__()
+        self.bn1 = nn.BatchNorm2d(in_channels)
+        self.activation = nn.ReLU(inplace=True)
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False,
+        )
+        self.dropout = nn.Dropout(p=dropout) if dropout > 0 else nn.Identity()
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(
+            out_channels,
+            out_channels,
+            kernel_size=3,
+            padding=1,
+            bias=False,
+        )
+        self.shortcut: nn.Module
+        if in_channels == out_channels and stride == 1:
+            self.shortcut = nn.Identity()
+        else:
+            self.shortcut = nn.Conv2d(
+                in_channels,
+                out_channels,
+                kernel_size=1,
+                stride=stride,
+                bias=False,
+            )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = self.activation(self.bn1(x))
+        shortcut = self.shortcut(x)
+        out = self.conv1(out)
+        out = self.dropout(self.activation(self.bn2(out)))
+        out = self.conv2(out)
+        return out + shortcut
+
+
+class TimmClassifier(nn.Module):
     task = "classification"
 
     def __init__(
@@ -139,12 +279,13 @@ class ResNetClassifier(nn.Module):
         num_classes: int = 10,
         in_channels: int = 3,
         pretrained: bool = False,
+        stem: dict[str, object] | None = None,
     ) -> None:
         super().__init__()
         try:
             import timm
         except ImportError as exc:  # pragma: no cover - dependency declared in pyproject
-            message = "ResNetClassifier requires timm. Install project dependencies."
+            message = "TimmClassifier requires timm. Install project dependencies."
             raise RuntimeError(message) from exc
 
         self.net = timm.create_model(
@@ -153,9 +294,59 @@ class ResNetClassifier(nn.Module):
             num_classes=num_classes,
             in_chans=in_channels,
         )
+        if stem is not None:
+            self._replace_stem(stem, in_channels)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
+
+    def _replace_stem(self, stem: dict[str, object], in_channels: int) -> None:
+        conv_parent = self.net
+        conv_name = "conv1"
+        pool_parent = self.net
+        pool_name = "maxpool"
+        if not hasattr(conv_parent, conv_name) and hasattr(self.net, "features"):
+            conv_parent = self.net.features
+            conv_name = "conv0"
+            pool_parent = self.net.features
+            pool_name = "pool0"
+        if not hasattr(conv_parent, conv_name) or not hasattr(pool_parent, pool_name):
+            raise ValueError(
+                "Configured timm stem replacement requires conv1/maxpool or features.conv0/pool0."
+            )
+
+        current_conv = getattr(conv_parent, conv_name)
+        if not isinstance(current_conv, nn.Conv2d):
+            raise ValueError("Configured timm stem replacement requires a single stem conv module.")
+
+        out_channels = current_conv.out_channels
+        kernel_size = int(stem.get("kernel_size", 7))
+        stride = int(stem.get("stride", 2))
+        padding = int(stem.get("padding", kernel_size // 2))
+        bias = bool(stem.get("bias", False))
+        max_pool = bool(stem.get("max_pool", True))
+
+        setattr(
+            conv_parent,
+            conv_name,
+            nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            bias=bias,
+            ),
+        )
+        setattr(
+            pool_parent,
+            pool_name,
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1) if max_pool else nn.Identity(),
+        )
+
+
+class ResNetClassifier(TimmClassifier):
+    pass
 
 
 def image_dim(input_shape: tuple[int, int, int] | list[int]) -> int:

@@ -1,0 +1,19 @@
+name: densenet
+params:
+  # timm model id for the first DenseNet architecture probe. DenseNet-121 is
+  # the standard compact ImageNet-family DenseNet and is available in timm.
+  model_name: densenet121
+
+  # Keep pretrained off so this remains an architecture/training comparison,
+  # not a transfer-learning experiment.
+  pretrained: false
+
+  # CIFAR-10 images are only 32x32. The default DenseNet stem would downsample
+  # immediately with a 7x7 stride-2 conv and 3x3 stride-2 maxpool, so this uses
+  # the same CIFAR-friendly 3x3 stride-1/no-pool front door we used for ResNet.
+  stem:
+    kernel_size: 3
+    stride: 1
+    padding: 1
+    bias: false
+    max_pool: false

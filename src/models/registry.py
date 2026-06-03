@@ -6,12 +6,21 @@ from typing import Any
 from omegaconf import DictConfig, OmegaConf
 
 from src.models.autoencoders import VAE, VQVAE, Autoencoder
-from src.models.classifiers import MLP, ConvNet, ResNetClassifier, image_dim
+from src.models.classifiers import (
+    MLP,
+    ConvNet,
+    ResNetClassifier,
+    TimmClassifier,
+    WideResNet,
+    image_dim,
+)
 
 MODEL_REGISTRY = {
     "mlp": MLP,
     "cnn": ConvNet,
     "resnet18": ResNetClassifier,
+    "densenet": TimmClassifier,
+    "wide_resnet": WideResNet,
     "autoencoder": Autoencoder,
     "vae": VAE,
     "vqvae": VQVAE,
@@ -38,11 +47,18 @@ def build_model(model_cfg: DictConfig, dataset_info: Mapping[str, Any] | None = 
     if name == "mlp":
         params.setdefault("input_dim", image_dim(input_shape))
         params.setdefault("num_classes", dataset_info.get("num_classes", 10))
-    elif name in {"cnn", "resnet18"}:
+    elif name in {"cnn", "resnet18", "densenet", "wide_resnet"}:
         params.setdefault("in_channels", input_shape[0])
         params.setdefault("num_classes", dataset_info.get("num_classes", 10))
+        if name == "wide_resnet":
+            params.pop("stem", None)
+        elif name == "densenet":
+            # DenseNet architecture probes may inherit from WRN recipes; keep
+            # those experiment files compact by ignoring WRN-only model params.
+            params.pop("depth", None)
+            params.pop("width_factor", None)
+            params.pop("dropout", None)
     elif name in {"autoencoder", "vae", "vqvae"}:
         params.setdefault("input_shape", input_shape)
 
     return MODEL_REGISTRY[name](**params)
-

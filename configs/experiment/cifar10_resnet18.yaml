@@ -1,17 +1,27 @@
 # @package _global_
+
+# Baseline CIFAR-10 run with the default timm ResNet18 architecture.
+# This intentionally keeps the ImageNet-style input stem so later experiments
+# can isolate whether changing only the stem improves CIFAR-10 behavior.
 defaults:
   - override /dataset: cifar10
   - override /model: resnet18
   - override /optimizer: adamw
 
+# Standard 10-class image classification objective.
 task: classification
+
 run:
   stage: 03_dataset_difficulty
   study: baseline
   goal: Establish a CIFAR-10 baseline on a standard ResNet-style model.
   tags: [baseline, resnet, cifar10]
+
 trainer:
+  # Short baseline budget used for quick comparison against instrumented variants.
   max_epochs: 20
+
 optimizer:
+  # AdamW keeps the first CIFAR baseline simple and comparable with prior runs.
   lr: 0.0003
   weight_decay: 0.01

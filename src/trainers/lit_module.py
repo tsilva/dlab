@@ -19,6 +19,14 @@ class ResearchLitModule(pl.LightningModule):
         self.task = cfg.get("task", getattr(model, "task", "classification"))
         self.beta = float(cfg.get("loss", {}).get("beta", 1.0))
         self.label_smoothing = float(cfg.get("loss", {}).get("label_smoothing", 0.0))
+        mixup_cfg = cfg.get("loss", {}).get("mixup", {})
+        self.mixup_enabled = bool(mixup_cfg.get("enabled", False))
+        self.mixup_alpha = float(mixup_cfg.get("alpha", 0.2))
+        self.mixup_p = float(mixup_cfg.get("p", 1.0))
+        cutmix_cfg = cfg.get("loss", {}).get("cutmix", {})
+        self.cutmix_enabled = bool(cutmix_cfg.get("enabled", False))
+        self.cutmix_alpha = float(cutmix_cfg.get("alpha", 1.0))
+        self.cutmix_p = float(cutmix_cfg.get("p", 1.0))
         self.learning_rate = float(cfg.optimizer.get("lr", 1e-3))
         self.example_batch: torch.Tensor | None = None
         self.save_hyperparameters(ignore=["model"])
@@ -57,7 +65,12 @@ class ResearchLitModule(pl.LightningModule):
         raise KeyError(f"Unknown scheduler '{scheduler_cfg.name}'")
 
     def training_step(self, batch, batch_idx: int):
-        loss, metrics = self._shared_step(batch, "train")
+        if self.task == "classification" and self._should_apply_cutmix():
+            loss, metrics = self._cutmix_classification_step(batch)
+        elif self.task == "classification" and self._should_apply_mixup():
+            loss, metrics = self._mixup_classification_step(batch)
+        else:
+            loss, metrics = self._shared_step(batch, "train")
         self.log_dict(metrics, prog_bar=True, on_step=True, on_epoch=True)
         self._log_lr()
         return loss
@@ -134,6 +147,104 @@ class ResearchLitModule(pl.LightningModule):
             metrics[f"{prefix}/codebook_perplexity"] = out["perplexity"]
             metrics[f"{prefix}/codebook_utilization"] = out["codebook_utilization"]
         return loss, metrics
+
+    def _should_apply_mixup(self) -> bool:
+        if not self.mixup_enabled or self.mixup_alpha <= 0.0 or self.mixup_p <= 0.0:
+            return False
+        if self.mixup_p >= 1.0:
+            return True
+        return bool(torch.rand((), device=self.device) < self.mixup_p)
+
+    def _should_apply_cutmix(self) -> bool:
+        if not self.cutmix_enabled or self.cutmix_alpha <= 0.0 or self.cutmix_p <= 0.0:
+            return False
+        if self.cutmix_p >= 1.0:
+            return True
+        return bool(torch.rand((), device=self.device) < self.cutmix_p)
+
+    def _mixup_classification_step(
+        self,
+        batch,
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        x, y = batch
+        mixed_x, y_a, y_b, lam = self._mixup_batch(x, y)
+        logits = self.model(mixed_x)
+        loss_a = F.cross_entropy(logits, y_a, label_smoothing=self.label_smoothing)
+        loss_b = F.cross_entropy(logits, y_b, label_smoothing=self.label_smoothing)
+        loss = lam * loss_a + (1.0 - lam) * loss_b
+        preds = torch.argmax(logits, dim=1)
+        acc = lam * (preds == y_a).float().mean() + (1.0 - lam) * (preds == y_b).float().mean()
+        return loss, {
+            "train/loss": loss,
+            "train/acc": acc,
+            "train/mixup_lambda": lam,
+        }
+
+    def _mixup_batch(
+        self,
+        x: torch.Tensor,
+        y: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        alpha = torch.tensor(self.mixup_alpha, device=x.device)
+        lam = torch.distributions.Beta(alpha, alpha).sample()
+        permutation = torch.randperm(x.size(0), device=x.device)
+        mixed_x = lam * x + (1.0 - lam) * x[permutation]
+        return mixed_x, y, y[permutation], lam
+
+    def _cutmix_classification_step(
+        self,
+        batch,
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        x, y = batch
+        mixed_x, y_a, y_b, lam = self._cutmix_batch(x, y)
+        logits = self.model(mixed_x)
+        loss_a = F.cross_entropy(logits, y_a, label_smoothing=self.label_smoothing)
+        loss_b = F.cross_entropy(logits, y_b, label_smoothing=self.label_smoothing)
+        loss = lam * loss_a + (1.0 - lam) * loss_b
+        preds = torch.argmax(logits, dim=1)
+        acc = lam * (preds == y_a).float().mean() + (1.0 - lam) * (preds == y_b).float().mean()
+        return loss, {
+            "train/loss": loss,
+            "train/acc": acc,
+            "train/cutmix_lambda": lam,
+        }
+
+    def _cutmix_batch(
+        self,
+        x: torch.Tensor,
+        y: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        if x.ndim != 4:
+            raise ValueError("CutMix expects image batches shaped as (N, C, H, W).")
+
+        alpha = torch.tensor(self.cutmix_alpha, device=x.device)
+        lam = torch.distributions.Beta(alpha, alpha).sample()
+        permutation = torch.randperm(x.size(0), device=x.device)
+        bbx1, bby1, bbx2, bby2 = self._rand_bbox(x, lam)
+
+        mixed_x = x.clone()
+        mixed_x[:, :, bby1:bby2, bbx1:bbx2] = x[permutation, :, bby1:bby2, bbx1:bbx2]
+
+        patch_area = (bbx2 - bbx1) * (bby2 - bby1)
+        image_area = x.size(-1) * x.size(-2)
+        adjusted_lam = x.new_tensor(1.0 - patch_area / image_area)
+        return mixed_x, y, y[permutation], adjusted_lam
+
+    def _rand_bbox(self, x: torch.Tensor, lam: torch.Tensor) -> tuple[int, int, int, int]:
+        height = x.size(-2)
+        width = x.size(-1)
+        cut_rat = float(torch.sqrt(1.0 - lam).item())
+        cut_w = int(width * cut_rat)
+        cut_h = int(height * cut_rat)
+
+        cx = int(torch.randint(width, (), device=x.device).item())
+        cy = int(torch.randint(height, (), device=x.device).item())
+
+        bbx1 = max(cx - cut_w // 2, 0)
+        bby1 = max(cy - cut_h // 2, 0)
+        bbx2 = min(cx + cut_w // 2, width)
+        bby2 = min(cy + cut_h // 2, height)
+        return bbx1, bby1, bbx2, bby2
 
     def _log_lr(self) -> None:
         optimizer = self.optimizers()

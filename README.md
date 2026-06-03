@@ -63,8 +63,10 @@ W&B is intended to be the comparison layer:
 - W&B Artifacts store resolved configs, metrics CSVs, checkpoints, and markdown reports.
 - `scripts/analyze.py wandb-study <study> --report` pulls matching W&B runs and writes a study report.
 - `scripts/setup_wandb_workspaces.py` creates curated saved views for daily monitoring:
-  training health, evaluation, forensics, and sweep comparison. Use `--stage <run.stage>`
-  to create stage-filtered copies and `--dry-run` to inspect the planned sections first.
+  training health, evaluation, forensics, minimal gradient debugging, full gradient
+  diagnostics, and sweep comparison.
+  Use `--stage <run.stage>` to create stage-filtered copies and `--dry-run` to inspect
+  the planned sections first.
 
 Example:
 
