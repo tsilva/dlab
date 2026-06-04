@@ -123,12 +123,16 @@ def test_modal_launcher_uses_serialized_nested_function(monkeypatch) -> None:
     fake_modal = SimpleNamespace(
         App=FakeApp,
         Image=FakeImage,
-        Secret=SimpleNamespace(from_name=lambda name: name),
+        Secret=SimpleNamespace(
+            from_name=lambda name: name,
+            from_dict=lambda values: ("env", values),
+        ),
         Volume=SimpleNamespace(
             from_name=lambda name, create_if_missing=False: (name, create_if_missing)
         ),
     )
     monkeypatch.setitem(sys.modules, "modal", fake_modal)
+    monkeypatch.setenv("WANDB_API_KEY", "test-key")
 
     cfg = OmegaConf.create(
         {
@@ -164,6 +168,10 @@ def test_modal_launcher_uses_serialized_nested_function(monkeypatch) -> None:
     assert calls["function_kwargs"]["volumes"] == {
         "/vol/dlab": ("dlab-training-runs", True),
     }
+    assert any(
+        secret[0] == "env" and "WANDB_API_KEY" in secret[1]
+        for secret in calls["function_kwargs"]["secrets"]
+    )
     assert calls["run_kwargs"] == {"detach": True}
     assert calls["source"] == ("src", False)
     assert build_steps == ["uv_sync", "workdir", "add_local_python_source"]
@@ -220,9 +228,13 @@ def test_modal_launcher_can_submit_without_waiting(monkeypatch) -> None:
     fake_modal = SimpleNamespace(
         App=FakeApp,
         Image=FakeImage,
-        Secret=SimpleNamespace(from_name=lambda name: name),
+        Secret=SimpleNamespace(
+            from_name=lambda name: name,
+            from_dict=lambda values: ("env", values),
+        ),
     )
     monkeypatch.setitem(sys.modules, "modal", fake_modal)
+    monkeypatch.setenv("WANDB_API_KEY", "test-key")
 
     cfg = OmegaConf.create(
         {

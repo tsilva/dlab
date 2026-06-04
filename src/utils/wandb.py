@@ -8,6 +8,8 @@ from typing import Any
 import torch
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
+from src.utils.run_target import run_target_summary
+
 
 def wandb_tags(cfg: DictConfig) -> list[str]:
     tags = [
@@ -117,6 +119,9 @@ def log_wandb_post_run(
     summary = summarize_training_run(trainer, lit_module.model, elapsed_seconds)
     if extra_summary:
         summary.update(extra_summary)
+    run_target = cfg.get("run_target")
+    if run_target:
+        summary.update(run_target_summary(run_target))
     for key, value in summary.items():
         wandb_run.summary[key] = value
 

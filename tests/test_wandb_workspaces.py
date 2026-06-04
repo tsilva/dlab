@@ -68,8 +68,8 @@ def test_runset_settings_filter_project_and_stage() -> None:
 
     assert "config:run.project" in settings["pinned_columns"]
     assert settings["filters"] == (
-        "Config('run.project') = 'cifar10_beat_baseline' AND "
-        "Config('run.stage') = '03_dataset_difficulty'"
+        "Tags() = 'cifar10_beat_baseline' and "
+        "Tags() = '03_dataset_difficulty'"
     )
 
 
@@ -121,6 +121,9 @@ def test_gradient_workspace_covers_flow_and_clipping_metrics() -> None:
     assert "train/grad_clip/was_clipped_epoch" in line_metrics
     assert "train/grad_flow/first_layer_norm_step" in line_metrics
     assert "train/grad_flow/dead_layers_step" in line_metrics
+    assert "train/sequence/hidden_norm_tlast_step" in line_metrics
+    assert "train/recurrent_grad/recurrent_kernel_norm_step" in line_metrics
+    assert "train/pred_entropy_step" in line_metrics
     assert "resume/event" in line_metrics
     assert "train/grad_clip/was_clipped_epoch" in scalar_metrics
 
@@ -160,8 +163,9 @@ def test_minimal_gradient_debug_workspace_prioritizes_core_diagnostics() -> None
         "1. High-leverage graph scan",
         "2. Outcome cards",
         "3. Secondary failure checks",
-        "4. Error analysis",
-        "5. Context",
+        "4. Sequence failure checks",
+        "5. Error analysis",
+        "6. Context",
     ]
     assert spec.sections[0].pinned is True
     assert spec.sections[0].smoothing_type is None
@@ -186,6 +190,10 @@ def test_minimal_gradient_debug_workspace_prioritizes_core_diagnostics() -> None
     assert "train/grad_clip/clip_coef_step" in line_metrics
     assert "train/grad_flow/first_to_last_ratio_step" in line_metrics
     assert "train/grad_flow/dead_layers_step" in line_metrics
+    assert "train/pred_entropy_step" in line_metrics
+    assert "train/sequence/hidden_norm_t000_step" in line_metrics
+    assert "train/sequence/hidden_norm_tlast_step" in line_metrics
+    assert "train/recurrent_grad/recurrent_kernel_norm_step" in line_metrics
     assert "resume/event" in line_metrics
     assert "val/acc" in outcome_metrics
     assert "train/acc_epoch" in outcome_metrics

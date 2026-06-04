@@ -5,7 +5,13 @@ import torch
 from omegaconf import OmegaConf
 from torch import nn
 
-from src.models.classifiers import ConvNet, ResNetClassifier, TimmClassifier, WideResNet
+from src.models.classifiers import (
+    ConvNet,
+    ResNetClassifier,
+    SequenceClassifier,
+    TimmClassifier,
+    WideResNet,
+)
 from src.models.registry import build_model
 
 
@@ -104,6 +110,105 @@ def test_build_model_ignores_wide_resnet_params_when_inheriting_densenet_recipe(
     assert model.net.features.conv0.kernel_size == (3, 3)
     assert model.net.features.conv0.stride == (1, 1)
     assert isinstance(model.net.features.pool0, nn.Identity)
+    assert model(torch.randn(2, 3, 32, 32)).shape == (2, 10)
+
+
+def test_sequence_classifier_treats_image_rows_as_sequence() -> None:
+    model = SequenceClassifier(
+        input_size=28,
+        hidden_dim=16,
+        num_classes=10,
+        rnn_type="rnn",
+        sequence_axis="rows",
+    )
+
+    logits = model(torch.randn(4, 1, 28, 28))
+
+    assert logits.shape == (4, 10)
+
+
+def test_sequence_classifier_supports_lstm_columns_and_mean_pooling() -> None:
+    model = SequenceClassifier(
+        input_size=28,
+        hidden_dim=16,
+        num_classes=10,
+        rnn_type="lstm",
+        bidirectional=True,
+        pooling="mean",
+        sequence_axis="columns",
+    )
+
+    logits = model(torch.randn(4, 1, 28, 28))
+
+    assert logits.shape == (4, 10)
+
+
+def test_sequence_classifier_treats_image_pixels_as_long_sequence() -> None:
+    model = SequenceClassifier(
+        input_size=1,
+        hidden_dim=16,
+        num_classes=10,
+        rnn_type="rnn",
+        sequence_axis="pixels",
+    )
+
+    sequence = model._to_sequence(torch.randn(4, 1, 28, 28))
+    logits = model(torch.randn(4, 1, 28, 28))
+
+    assert sequence.shape == (4, 784, 1)
+    assert logits.shape == (4, 10)
+
+
+def test_sequence_classifier_can_return_recurrent_outputs_for_diagnostics() -> None:
+    model = SequenceClassifier(
+        input_size=1,
+        hidden_dim=16,
+        num_classes=10,
+        rnn_type="rnn",
+        sequence_axis="pixels",
+    )
+
+    logits, sequence_output = model.forward_with_sequence(torch.randn(4, 1, 28, 28))
+
+    assert logits.shape == (4, 10)
+    assert sequence_output.shape == (4, 784, 16)
+
+
+def test_build_model_sets_sequence_input_size_from_dataset_shape() -> None:
+    cfg = OmegaConf.create(
+        {
+            "name": "rnn",
+            "params": {
+                "input_size": None,
+                "hidden_dim": 16,
+                "rnn_type": "gru",
+            },
+        }
+    )
+
+    model = build_model(cfg, {"input_shape": (3, 32, 32), "num_classes": 10})
+
+    assert isinstance(model, SequenceClassifier)
+    assert model.input_size == 96
+    assert model(torch.randn(2, 3, 32, 32)).shape == (2, 10)
+
+
+def test_build_model_sets_pixel_sequence_input_size_from_channels() -> None:
+    cfg = OmegaConf.create(
+        {
+            "name": "rnn",
+            "params": {
+                "input_size": None,
+                "hidden_dim": 16,
+                "sequence_axis": "pixels",
+            },
+        }
+    )
+
+    model = build_model(cfg, {"input_shape": (3, 32, 32), "num_classes": 10})
+
+    assert isinstance(model, SequenceClassifier)
+    assert model.input_size == 3
     assert model(torch.randn(2, 3, 32, 32)).shape == (2, 10)
 
 

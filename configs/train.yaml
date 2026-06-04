@@ -57,6 +57,11 @@ gradient_flow:
   log_every_n_steps: 50
   vanishing_threshold: 1e-8
 
+sequence_diagnostics:
+  enabled: false
+  log_every_n_steps: 50
+  log_validation: true
+
 checkpoint:
   monitor: val/loss
   mode: min

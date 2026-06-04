@@ -1,0 +1,46 @@
+# @package _global_
+
+# Sequential MNIST baseline: each image is treated as a sequence of 28 rows,
+# with 28 pixel features per time step.
+defaults:
+  - override /dataset: mnist
+  - override /model: rnn
+  - override /optimizer: adam
+
+task: classification
+
+run:
+  project: sequence_modeling_basics
+  stage: 04_sequence_modeling
+  study: 001_rnn_baseline
+  question: Can a small vanilla RNN classify MNIST when each image is treated as a sequence of rows?
+  hypothesis: A small vanilla RNN should learn sequential MNIST quickly, but underperform CNN baselines because it lacks a strong spatial inductive bias.
+  goal: Establish a low-compute sequential MNIST baseline.
+  expected_pattern: Validation accuracy should rise above a random baseline quickly, with gradient clipping helping recurrent optimization stability.
+  controlled_variables: [dataset, optimizer, learning_rate, batch_size, epoch_budget]
+  changed_variables: [model]
+  tags: [mnist, sequence-modeling, rnn, baseline]
+
+dataset:
+  batch_size: 128
+
+model:
+  params:
+    hidden_dim: 128
+    num_layers: 1
+    dropout: 0.0
+    rnn_type: rnn
+    bidirectional: false
+    pooling: last
+    sequence_axis: rows
+
+optimizer:
+  lr: 0.001
+
+trainer:
+  max_epochs: 5
+  gradient_clip_val: 1.0
+
+gradient_flow:
+  enabled: true
+  log_every_n_steps: 50

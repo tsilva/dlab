@@ -12,5 +12,3 @@ run:
   tags: [roadmap, mlp, mnist]
 trainer:
   max_epochs: 10
-wandb:
-  enabled: false

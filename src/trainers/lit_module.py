@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import pytorch_lightning as pl
@@ -70,20 +71,20 @@ class ResearchLitModule(pl.LightningModule):
         elif self.task == "classification" and self._should_apply_mixup():
             loss, metrics = self._mixup_classification_step(batch)
         else:
-            loss, metrics = self._shared_step(batch, "train")
+            loss, metrics = self._shared_step(batch, "train", batch_idx)
         self.log_dict(metrics, prog_bar=True, on_step=True, on_epoch=True)
         self._log_lr()
         return loss
 
     def validation_step(self, batch, batch_idx: int):
-        loss, metrics = self._shared_step(batch, "val")
+        loss, metrics = self._shared_step(batch, "val", batch_idx)
         self.log_dict(metrics, prog_bar=True, on_epoch=True)
         if batch_idx == 0 and isinstance(batch, (tuple, list)):
             self.example_batch = batch[0].detach()[:16]
         return loss
 
     def test_step(self, batch, batch_idx: int):
-        _, metrics = self._shared_step(batch, "test")
+        _, metrics = self._shared_step(batch, "test", batch_idx)
         self.log_dict(metrics, prog_bar=True, on_epoch=True)
 
     def on_before_optimizer_step(self, optimizer) -> None:
@@ -95,6 +96,7 @@ class ResearchLitModule(pl.LightningModule):
         self.log("train/grad_norm", total_norm, on_step=True, prog_bar=False)
         self._log_gradient_clip(total_norm)
         self._log_gradient_flow()
+        self._log_recurrent_gradient_splits()
 
     def on_validation_epoch_end(self) -> None:
         if self.example_batch is None or self.logger is None:
@@ -116,14 +118,25 @@ class ResearchLitModule(pl.LightningModule):
         if self.task == "vae":
             self._log_vae_latent_traversal(out["z"])
 
-    def _shared_step(self, batch, prefix: str) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    def _shared_step(
+        self,
+        batch,
+        prefix: str,
+        batch_idx: int | None = None,
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         x, y = batch
         if self.task == "classification":
-            logits = self.model(x)
+            logits, sequence_output = self._classification_logits(x, prefix, batch_idx)
             loss = F.cross_entropy(logits, y, label_smoothing=self.label_smoothing)
             preds = torch.argmax(logits, dim=1)
             acc = (preds == y).float().mean()
-            return loss, {f"{prefix}/loss": loss, f"{prefix}/acc": acc}
+            metrics = {
+                f"{prefix}/loss": loss,
+                f"{prefix}/acc": acc,
+                **self._prediction_diagnostics(logits, prefix),
+            }
+            metrics.update(self._sequence_diagnostics(sequence_output, prefix))
+            return loss, metrics
 
         out = self.model(x)
         recon = out["recon"]
@@ -147,6 +160,80 @@ class ResearchLitModule(pl.LightningModule):
             metrics[f"{prefix}/codebook_perplexity"] = out["perplexity"]
             metrics[f"{prefix}/codebook_utilization"] = out["codebook_utilization"]
         return loss, metrics
+
+    def _classification_logits(
+        self,
+        x: torch.Tensor,
+        prefix: str,
+        batch_idx: int | None,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        if self._should_log_sequence_diagnostics(prefix, batch_idx) and hasattr(
+            self.model,
+            "forward_with_sequence",
+        ):
+            return self.model.forward_with_sequence(x)
+        return self.model(x), None
+
+    def _prediction_diagnostics(
+        self,
+        logits: torch.Tensor,
+        prefix: str,
+    ) -> dict[str, torch.Tensor]:
+        probs = logits.softmax(dim=-1)
+        entropy = -(probs * probs.clamp_min(1e-12).log()).sum(dim=-1).mean()
+        max_prob = probs.max(dim=-1).values.mean()
+        metrics = {
+            f"{prefix}/pred_entropy": entropy,
+            f"{prefix}/pred_max_prob": max_prob,
+        }
+        if logits.shape[-1] > 1:
+            metrics[f"{prefix}/pred_entropy_normalized"] = entropy / math.log(logits.shape[-1])
+        return metrics
+
+    def _sequence_diagnostics(
+        self,
+        sequence_output: torch.Tensor | None,
+        prefix: str,
+    ) -> dict[str, torch.Tensor]:
+        if sequence_output is None:
+            return {}
+        hidden_norms = sequence_output.detach().norm(2, dim=-1).mean(dim=0)
+        if hidden_norms.numel() == 0:
+            return {}
+        last_index = hidden_norms.numel() - 1
+        indices = {
+            "t000": 0,
+            "t25pct": last_index // 4,
+            "t50pct": last_index // 2,
+            "t75pct": (last_index * 3) // 4,
+            "tlast": last_index,
+        }
+        eps = torch.tensor(1e-12, device=sequence_output.device)
+        first = hidden_norms[0]
+        last = hidden_norms[-1]
+        metrics = {
+            f"{prefix}/sequence/hidden_norm_{name}": hidden_norms[index]
+            for name, index in indices.items()
+        }
+        metrics.update(
+            {
+                f"{prefix}/sequence/hidden_norm_mean": hidden_norms.mean(),
+                f"{prefix}/sequence/hidden_norm_min": hidden_norms.min(),
+                f"{prefix}/sequence/hidden_norm_max": hidden_norms.max(),
+                f"{prefix}/sequence/hidden_norm_last_to_first_ratio": last / (first + eps),
+                f"{prefix}/sequence/hidden_norm_range": hidden_norms.max() - hidden_norms.min(),
+            }
+        )
+        return metrics
+
+    def _should_log_sequence_diagnostics(self, prefix: str, batch_idx: int | None) -> bool:
+        sequence_cfg = self.cfg.get("sequence_diagnostics", {})
+        if not sequence_cfg.get("enabled", False):
+            return False
+        if prefix == "train":
+            log_every = int(sequence_cfg.get("log_every_n_steps", 50))
+            return log_every <= 1 or self.global_step % log_every == 0
+        return bool(sequence_cfg.get("log_validation", True)) and batch_idx == 0
 
     def _should_apply_mixup(self) -> bool:
         if not self.mixup_enabled or self.mixup_alpha <= 0.0 or self.mixup_p <= 0.0:
@@ -328,6 +415,55 @@ class ResearchLitModule(pl.LightningModule):
             on_epoch=True,
             prog_bar=False,
         )
+
+    def _log_recurrent_gradient_splits(self) -> None:
+        sequence_cfg = self.cfg.get("sequence_diagnostics", {})
+        if not sequence_cfg.get("enabled", False):
+            return
+        log_every = int(sequence_cfg.get("log_every_n_steps", 50))
+        if log_every > 1 and self.global_step % log_every != 0:
+            return
+
+        grouped_norms: dict[str, list[torch.Tensor]] = {
+            "input_kernel": [],
+            "recurrent_kernel": [],
+            "bias": [],
+            "classifier": [],
+        }
+        for name, parameter in self.model.named_parameters():
+            if parameter.grad is None:
+                continue
+            grad_norm = parameter.grad.detach().norm(2)
+            if "weight_ih" in name:
+                grouped_norms["input_kernel"].append(grad_norm)
+            elif "weight_hh" in name:
+                grouped_norms["recurrent_kernel"].append(grad_norm)
+            elif "bias" in name and ".rnn." in name:
+                grouped_norms["bias"].append(grad_norm)
+            elif name.startswith("classifier."):
+                grouped_norms["classifier"].append(grad_norm)
+
+        metrics = {}
+        for group, norms in grouped_norms.items():
+            if norms:
+                metrics[f"train/recurrent_grad/{group}_norm"] = torch.stack(norms).norm(2)
+        if not metrics:
+            return
+
+        eps = torch.tensor(1e-12, device=self.device)
+        input_norm = metrics.get("train/recurrent_grad/input_kernel_norm")
+        recurrent_norm = metrics.get("train/recurrent_grad/recurrent_kernel_norm")
+        classifier_norm = metrics.get("train/recurrent_grad/classifier_norm")
+        if input_norm is not None and recurrent_norm is not None:
+            metrics["train/recurrent_grad/recurrent_to_input_ratio"] = recurrent_norm / (
+                input_norm + eps
+            )
+        if classifier_norm is not None and recurrent_norm is not None:
+            metrics["train/recurrent_grad/classifier_to_recurrent_ratio"] = classifier_norm / (
+                recurrent_norm + eps
+            )
+
+        self.log_dict(metrics, on_step=True, on_epoch=True, prog_bar=False)
 
     def _log_conv_filters(self) -> None:
         if not hasattr(self.model, "first_layer_filters"):

@@ -30,5 +30,3 @@ early_stopping:
   mode: min
   patience: 5
   min_delta: 0.0005
-wandb:
-  enabled: false

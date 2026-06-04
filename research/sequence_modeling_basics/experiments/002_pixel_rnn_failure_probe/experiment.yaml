@@ -1,0 +1,58 @@
+id: 002_pixel_rnn_failure_probe
+project: sequence_modeling_basics
+status: completed
+
+run:
+  project: sequence_modeling_basics
+  stage: 04_sequence_modeling
+  study: 002_pixel_rnn_failure_probe
+
+question: >
+  Does a vanilla RNN fail or degrade when MNIST is treated as a 784-step pixel sequence instead of 28 row steps?
+
+hypothesis: >
+  A vanilla RNN should struggle more on 784-step pixel sequences because long-range credit assignment and vanishing gradients make optimization harder than row-wise sequential MNIST.
+
+selection:
+  metric: val/acc
+  mode: max
+  test_used_for_selection: false
+
+controlled_variables:
+  - dataset
+  - optimizer
+  - learning_rate
+  - batch_size
+  - epoch_budget
+  - recurrent_hidden_dim
+changed_variables:
+  - model.params.sequence_axis
+  - model.params.input_size
+
+config: configs/experiment/mnist_rnn_pixel_failure.yaml
+
+failure_criteria:
+  baseline: 001_rnn_baseline
+  symptoms:
+    - materially lower validation accuracy than the 28-step row RNN after the same epoch budget
+    - slow validation accuracy improvement after the first epoch
+    - high or unstable validation loss relative to the row RNN
+    - gradient clipping pressure or weak recurrent gradient-flow diagnostics
+
+artifact_key:
+  naming_source: dlab_generated_run_name
+  wandb_artifact_suffix: -run
+
+completed_runs:
+  - run_name: mnist-rnn_002-pixel-rnn-failure-probe_adam-lr0p001-bs128-constant_w128-d1-do0_seed1337
+    seed: 1337
+    wandb_run_id: w30kx8ft
+    wandb_run_url: https://wandb.ai/tsilva/dlab/runs/w30kx8ft
+    wandb_artifact: tsilva/dlab/mnist-rnn_002-pixel-rnn-failure-probe_adam-lr0p001-bs128-constant_w128-d1-do0_seed1337-run:latest
+    modal_run_url: https://modal.com/apps/eng-tiago-silva/main/ap-s0u7PSo7C3Gqv3WIidw0dj
+    selected_checkpoint: /root/outputs/mnist-rnn_002-pixel-rnn-failure-probe_adam-lr0p001-bs128-constant_w128-d1-do0_seed1337/checkpoints/002.ckpt
+    selected_val_acc: 0.1090
+    selected_val_loss: 2.3009
+    runtime_seconds: 60.7931
+    estimated_cost_usd: 0.0100
+    decision: use_as_failure_state

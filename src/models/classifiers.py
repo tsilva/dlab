@@ -99,6 +99,113 @@ class ConvNet(nn.Module):
         return None
 
 
+class SequenceClassifier(nn.Module):
+    task = "classification"
+
+    def __init__(
+        self,
+        input_size: int | None = None,
+        num_classes: int = 10,
+        hidden_dim: int = 128,
+        num_layers: int = 1,
+        dropout: float = 0.0,
+        rnn_type: str = "rnn",
+        bidirectional: bool = False,
+        pooling: str = "last",
+        sequence_axis: str = "rows",
+    ) -> None:
+        super().__init__()
+        if num_layers < 1:
+            raise ValueError("num_layers must be >= 1")
+        if hidden_dim < 1:
+            raise ValueError("hidden_dim must be >= 1")
+        if pooling not in {"last", "mean"}:
+            raise ValueError("pooling must be one of: last, mean")
+        if sequence_axis not in {"rows", "columns", "pixels"}:
+            raise ValueError("sequence_axis must be one of: rows, columns, pixels")
+
+        self.input_size = input_size
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.bidirectional = bidirectional
+        self.pooling = pooling
+        self.sequence_axis = sequence_axis
+        recurrent_dropout = dropout if num_layers > 1 else 0.0
+
+        recurrent_cls = {
+            "rnn": nn.RNN,
+            "gru": nn.GRU,
+            "lstm": nn.LSTM,
+        }.get(rnn_type)
+        if recurrent_cls is None:
+            raise ValueError("rnn_type must be one of: rnn, gru, lstm")
+
+        if input_size is None:
+            self.input_projection = nn.LazyLinear(hidden_dim)
+            rnn_input_size = hidden_dim
+        else:
+            self.input_projection = nn.Identity()
+            rnn_input_size = input_size
+        self.rnn = recurrent_cls(
+            input_size=rnn_input_size,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=recurrent_dropout,
+            bidirectional=bidirectional,
+        )
+        directions = 2 if bidirectional else 1
+        self.classifier = nn.Linear(hidden_dim * directions, num_classes)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        sequence = self._to_sequence(x)
+        sequence = self.input_projection(sequence)
+        output, hidden = self.rnn(sequence)
+        features = self._pool_recurrent_output(output, hidden)
+        return self.classifier(features)
+
+    def forward_with_sequence(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        sequence = self._to_sequence(x)
+        sequence = self.input_projection(sequence)
+        output, hidden = self.rnn(sequence)
+        features = self._pool_recurrent_output(output, hidden)
+        return self.classifier(features), output
+
+    def _pool_recurrent_output(
+        self,
+        output: torch.Tensor,
+        hidden: torch.Tensor | tuple[torch.Tensor, torch.Tensor],
+    ) -> torch.Tensor:
+        if self.pooling == "mean":
+            return output.mean(dim=1)
+        return self._last_hidden(hidden)
+
+    def _to_sequence(self, x: torch.Tensor) -> torch.Tensor:
+        if x.ndim == 2:
+            return x.unsqueeze(-1)
+        if x.ndim == 3:
+            return x
+        if x.ndim != 4:
+            raise ValueError(
+                "SequenceClassifier expects input shaped (B, T), (B, T, F), or (B, C, H, W)."
+            )
+        if self.sequence_axis == "rows":
+            return x.permute(0, 2, 1, 3).flatten(2)
+        if self.sequence_axis == "pixels":
+            return x.flatten(2).transpose(1, 2)
+        return x.permute(0, 3, 1, 2).flatten(2)
+
+    def _last_hidden(
+        self,
+        hidden: torch.Tensor | tuple[torch.Tensor, torch.Tensor],
+    ) -> torch.Tensor:
+        if isinstance(hidden, tuple):
+            hidden = hidden[0]
+        directions = 2 if self.bidirectional else 1
+        hidden = hidden.view(self.num_layers, directions, hidden.shape[1], self.hidden_dim)
+        return hidden[-1].transpose(0, 1).reshape(hidden.shape[2], directions * self.hidden_dim)
+
+
 class _ResidualConvBlock(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, batch_norm: bool) -> None:
         super().__init__()
@@ -315,9 +422,12 @@ class TimmClassifier(nn.Module):
             conv_name = "conv0"
             pool_parent = self.net.features
             pool_name = "pool0"
-        if not _has_named_module(conv_parent, conv_name) or (
-            pool_parent is not None and pool_name is not None and not hasattr(pool_parent, pool_name)
-        ):
+        missing_pool = (
+            pool_parent is not None
+            and pool_name is not None
+            and not hasattr(pool_parent, pool_name)
+        )
+        if not _has_named_module(conv_parent, conv_name) or missing_pool:
             raise ValueError(
                 "Configured timm stem replacement requires conv1/maxpool, "
                 "features.conv0/pool0, or stem[0]."
