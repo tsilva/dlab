@@ -85,7 +85,7 @@ def _modal_secrets(modal, cfg: DictConfig) -> list:
     launcher = cfg.launcher
     secrets = [modal.Secret.from_name(name) for name in launcher.get("secrets", [])]
 
-    if cfg.get("wandb", {}).get("enabled", False):
+    if cfg.get("wandb", {}).get("enabled", True):
         wandb_env = _wandb_env()
         if wandb_env:
             secrets.append(modal.Secret.from_dict(wandb_env))

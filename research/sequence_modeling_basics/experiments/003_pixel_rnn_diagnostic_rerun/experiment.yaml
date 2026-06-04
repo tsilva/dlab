@@ -1,0 +1,61 @@
+id: 003_pixel_rnn_diagnostic_rerun
+project: sequence_modeling_basics
+status: completed
+
+run:
+  project: sequence_modeling_basics
+  stage: 04_sequence_modeling
+  study: 003_pixel_rnn_diagnostic_rerun
+
+question: >
+  Can timestep hidden-state, entropy, and recurrent-gradient diagnostics identify why the 784-step vanilla RNN fails?
+
+hypothesis: >
+  The pixel-sequence RNN should remain at chance while W&B diagnostics show high prediction entropy and weak recurrent signal flow compared with the classifier head or input kernel.
+
+selection:
+  metric: val/acc
+  mode: max
+  test_used_for_selection: false
+
+controlled_variables:
+  - dataset
+  - optimizer
+  - learning_rate
+  - batch_size
+  - epoch_budget
+  - recurrent_hidden_dim
+  - sequence_axis
+changed_variables:
+  - sequence_diagnostics.enabled
+
+artifact_key:
+  naming_source: dlab_generated_run_name
+  wandb_artifact_suffix: -run
+
+failure_criteria:
+  baseline: 002_pixel_rnn_failure_probe
+  symptoms:
+    - validation accuracy remains near chance under the same budget
+    - prediction entropy remains close to log(num_classes)
+    - recurrent-gradient split shows weak recurrent signal relative to classifier or input gradients
+    - hidden-state timestep panels show little useful separation across the long sequence
+
+completed_runs:
+  - run_name: mnist-rnn_003-pixel-rnn-diagnostic-rerun_adam-lr0p001-bs128-constant_w128-d1-do0_seed1337
+    seed: 1337
+    wandb_run_id: 7sz83m7v
+    wandb_run_url: https://wandb.ai/tsilva/dlab/runs/7sz83m7v
+    wandb_artifact: tsilva/dlab/mnist-rnn_003-pixel-rnn-diagnostic-rerun_adam-lr0p001-bs128-constant_w128-d1-do0_seed1337-run:latest
+    modal_run_url: https://modal.com/apps/eng-tiago-silva/main/ap-6HGYvaLnnyJa7K2by1sdbm
+    selected_checkpoint: /root/outputs/mnist-rnn_003-pixel-rnn-diagnostic-rerun_adam-lr0p001-bs128-constant_w128-d1-do0_seed1337/checkpoints/002.ckpt
+    selected_val_acc: 0.1090
+    selected_val_loss: 2.3009
+    selected_val_pred_entropy: 2.3007
+    selected_val_pred_entropy_normalized: 0.9992
+    selected_val_hidden_norm_last_to_first_ratio: 0.6336
+    train_recurrent_to_input_grad_ratio: 0.6861
+    train_classifier_to_recurrent_grad_ratio: 14.3552
+    runtime_seconds: 64.7171
+    estimated_cost_usd: 0.0106
+    decision: keep_as_diagnostic_failure_baseline

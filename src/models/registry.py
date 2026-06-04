@@ -10,6 +10,7 @@ from src.models.classifiers import (
     MLP,
     ConvNet,
     ResNetClassifier,
+    SequenceClassifier,
     TimmClassifier,
     WideResNet,
     image_dim,
@@ -19,6 +20,8 @@ MODEL_REGISTRY = {
     "mlp": MLP,
     "cnn": ConvNet,
     "resnet18": ResNetClassifier,
+    "rnn": SequenceClassifier,
+    "sequence_classifier": SequenceClassifier,
     "densenet": TimmClassifier,
     "timm": TimmClassifier,
     "wide_resnet": WideResNet,
@@ -59,6 +62,13 @@ def build_model(model_cfg: DictConfig, dataset_info: Mapping[str, Any] | None = 
             params.pop("depth", None)
             params.pop("width_factor", None)
             params.pop("dropout", None)
+    elif name in {"rnn", "sequence_classifier"}:
+        if params.get("input_size") is None:
+            if params.get("sequence_axis") == "pixels":
+                params["input_size"] = input_shape[0]
+            else:
+                params["input_size"] = input_shape[0] * input_shape[2]
+        params.setdefault("num_classes", dataset_info.get("num_classes", 10))
     elif name in {"autoencoder", "vae", "vqvae"}:
         params.setdefault("input_shape", input_shape)
 

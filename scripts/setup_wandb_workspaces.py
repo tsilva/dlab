@@ -105,6 +105,29 @@ def build_workspace_specs(
                         ),
                     ],
                 ),
+                SectionSpec(
+                    name="Sequence diagnostics",
+                    is_open=False,
+                    smoothing_type="exponential",
+                    smoothing_weight=20,
+                    panels=[
+                        line("Prediction entropy", [
+                            "train/pred_entropy_step",
+                            "train/pred_entropy_epoch",
+                            "val/pred_entropy",
+                        ]),
+                        line("Hidden norm by timestep", [
+                            "train/sequence/hidden_norm_t000_step",
+                            "train/sequence/hidden_norm_t50pct_step",
+                            "train/sequence/hidden_norm_tlast_step",
+                        ]),
+                        line("Recurrent gradient split", [
+                            "train/recurrent_grad/input_kernel_norm_step",
+                            "train/recurrent_grad/recurrent_kernel_norm_step",
+                            "train/recurrent_grad/classifier_norm_step",
+                        ]),
+                    ],
+                ),
             ],
         ),
         "evaluation": WorkspaceSpec(
@@ -248,6 +271,48 @@ def build_workspace_specs(
                     ],
                 ),
                 SectionSpec(
+                    name="Recurrent sequence diagnostics",
+                    smoothing_type="exponential",
+                    smoothing_weight=20,
+                    panels=[
+                        line("Prediction entropy", [
+                            "train/pred_entropy_step",
+                            "train/pred_entropy_epoch",
+                            "val/pred_entropy",
+                        ]),
+                        line("Prediction confidence", [
+                            "train/pred_max_prob_step",
+                            "train/pred_max_prob_epoch",
+                            "val/pred_max_prob",
+                        ]),
+                        line("Hidden norm by timestep", [
+                            "train/sequence/hidden_norm_t000_step",
+                            "train/sequence/hidden_norm_t25pct_step",
+                            "train/sequence/hidden_norm_t50pct_step",
+                            "train/sequence/hidden_norm_t75pct_step",
+                            "train/sequence/hidden_norm_tlast_step",
+                        ]),
+                        line("Hidden norm summary", [
+                            "train/sequence/hidden_norm_min_step",
+                            "train/sequence/hidden_norm_mean_step",
+                            "train/sequence/hidden_norm_max_step",
+                        ]),
+                        line("Hidden norm ratio/range", [
+                            "train/sequence/hidden_norm_last_to_first_ratio_step",
+                            "train/sequence/hidden_norm_range_step",
+                        ]),
+                        line("Recurrent gradient split", [
+                            "train/recurrent_grad/input_kernel_norm_step",
+                            "train/recurrent_grad/recurrent_kernel_norm_step",
+                            "train/recurrent_grad/classifier_norm_step",
+                        ]),
+                        line("Recurrent gradient ratios", [
+                            "train/recurrent_grad/recurrent_to_input_ratio_step",
+                            "train/recurrent_grad/classifier_to_recurrent_ratio_step",
+                        ]),
+                    ],
+                ),
+                SectionSpec(
                     name="Optimization context",
                     panels=[
                         line("Train and validation loss", [
@@ -351,7 +416,31 @@ def build_workspace_specs(
                     ],
                 ),
                 SectionSpec(
-                    name="4. Error analysis",
+                    name="4. Sequence failure checks",
+                    smoothing_type="exponential",
+                    smoothing_weight=20,
+                    panels=[
+                        line("Prediction entropy", [
+                            "train/pred_entropy_step",
+                            "train/pred_entropy_epoch",
+                            "val/pred_entropy",
+                        ]),
+                        line("Hidden norm first/mid/last", [
+                            "train/sequence/hidden_norm_t000_step",
+                            "train/sequence/hidden_norm_t50pct_step",
+                            "train/sequence/hidden_norm_tlast_step",
+                        ]),
+                        line("Recurrent vs input gradient", [
+                            "train/recurrent_grad/input_kernel_norm_step",
+                            "train/recurrent_grad/recurrent_kernel_norm_step",
+                        ]),
+                        line("Classifier vs recurrent gradient ratio", [
+                            "train/recurrent_grad/classifier_to_recurrent_ratio_step",
+                        ]),
+                    ],
+                ),
+                SectionSpec(
+                    name="5. Error analysis",
                     panels=[
                         media("Validation misclassifications", ["errors/val_misclassifications"]),
                         media("Validation confusion matrix", ["errors/val_confusion_matrix"]),
@@ -366,7 +455,7 @@ def build_workspace_specs(
                     ],
                 ),
                 SectionSpec(
-                    name="5. Context",
+                    name="6. Context",
                     is_open=False,
                     panels=[
                         line("Learning rate", ["train/lr", "lr-Adam", "lr-AdamW", "lr-SGD"]),
@@ -557,11 +646,11 @@ def runset_settings(ws: Any, stage: str | None, run_project: str | None = None) 
     }
     filters = []
     if run_project:
-        filters.append(f"Config('run.project') = '{run_project}'")
+        filters.append(f"Tags() = '{run_project}'")
     if stage:
-        filters.append(f"Config('run.stage') = '{stage}'")
+        filters.append(f"Tags() = '{stage}'")
     if filters:
-        kwargs["filters"] = " AND ".join(filters)
+        kwargs["filters"] = " and ".join(filters)
     return ws.RunsetSettings(**kwargs)
 
 

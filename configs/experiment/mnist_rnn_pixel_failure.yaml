@@ -1,0 +1,47 @@
+# @package _global_
+
+# Failure probe: treat each MNIST image as a 784-step pixel sequence with one
+# feature per step. This deliberately stresses vanilla RNN credit assignment.
+defaults:
+  - override /dataset: mnist
+  - override /model: rnn
+  - override /optimizer: adam
+
+task: classification
+
+run:
+  project: sequence_modeling_basics
+  stage: 04_sequence_modeling
+  study: 002_pixel_rnn_failure_probe
+  question: Does a vanilla RNN fail or degrade when MNIST is treated as a 784-step pixel sequence instead of 28 row steps?
+  hypothesis: A vanilla RNN should struggle more on 784-step pixel sequences because long-range credit assignment and vanishing gradients make optimization harder than row-wise sequential MNIST.
+  goal: Create a diagnosable recurrent failure state before moving to GRU/LSTM fixes.
+  expected_pattern: Validation accuracy should improve more slowly or plateau below the row-wise RNN baseline, with weaker gradient-flow signals through early recurrent parameters.
+  controlled_variables: [dataset, optimizer, learning_rate, batch_size, epoch_budget]
+  changed_variables: [model.params.sequence_axis, model.params.input_size]
+  tags: [mnist, sequence-modeling, rnn, failure-probe, pixel-sequence]
+
+dataset:
+  batch_size: 128
+
+model:
+  params:
+    input_size: null
+    hidden_dim: 128
+    num_layers: 1
+    dropout: 0.0
+    rnn_type: rnn
+    bidirectional: false
+    pooling: last
+    sequence_axis: pixels
+
+optimizer:
+  lr: 0.001
+
+trainer:
+  max_epochs: 5
+  gradient_clip_val: 1.0
+
+gradient_flow:
+  enabled: true
+  log_every_n_steps: 50

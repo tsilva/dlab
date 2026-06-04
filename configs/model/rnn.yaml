@@ -1,0 +1,10 @@
+name: rnn
+params:
+  input_size: null
+  hidden_dim: 128
+  num_layers: 1
+  dropout: 0.0
+  rnn_type: rnn
+  bidirectional: false
+  pooling: last
+  sequence_axis: rows

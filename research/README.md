@@ -5,6 +5,8 @@ Generated training artifacts stay in `outputs/`, generated per-run reports stay 
 `reports/`, and durable remote checkpoints/configs/metrics/reports are stored as
 W&B Artifacts.
 
+For manual W&B run triage, use the [Run Debugging Playbook](debugging_playbook.md).
+
 Use this hierarchy:
 
 ```text

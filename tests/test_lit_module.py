@@ -4,6 +4,7 @@ import torch
 from omegaconf import OmegaConf
 from torch import nn
 
+from src.models.classifiers import SequenceClassifier
 from src.trainers import ResearchLitModule
 
 
@@ -24,6 +25,11 @@ def _classification_cfg(
             "dataset": {"name": "cifar10"},
             "trainer": {"gradient_clip_val": 0.0},
             "gradient_flow": {"enabled": False},
+            "sequence_diagnostics": {
+                "enabled": False,
+                "log_every_n_steps": 50,
+                "log_validation": True,
+            },
         }
     )
 
@@ -77,3 +83,37 @@ def test_cutmix_classification_step_logs_weighted_training_metrics() -> None:
     assert set(metrics) == {"train/loss", "train/acc", "train/cutmix_lambda"}
     assert metrics["train/loss"] is loss
     assert 0.0 <= float(metrics["train/acc"]) <= 1.0
+
+
+def test_classification_step_logs_prediction_entropy() -> None:
+    module = ResearchLitModule(nn.Linear(4, 3), _classification_cfg())
+    batch = (torch.randn(8, 4), torch.randint(0, 3, (8,)))
+
+    loss, metrics = module._shared_step(batch, "train", batch_idx=0)
+
+    assert loss.ndim == 0
+    assert "train/pred_entropy" in metrics
+    assert "train/pred_entropy_normalized" in metrics
+    assert "train/pred_max_prob" in metrics
+
+
+def test_sequence_diagnostics_log_hidden_state_norms_when_enabled() -> None:
+    cfg = _classification_cfg()
+    cfg.sequence_diagnostics.enabled = True
+    cfg.sequence_diagnostics.log_every_n_steps = 1
+    model = SequenceClassifier(
+        input_size=1,
+        hidden_dim=8,
+        num_classes=10,
+        rnn_type="rnn",
+        sequence_axis="pixels",
+    )
+    module = ResearchLitModule(model, cfg)
+    batch = (torch.randn(4, 1, 28, 28), torch.randint(0, 10, (4,)))
+
+    _, metrics = module._shared_step(batch, "train", batch_idx=0)
+
+    assert "train/sequence/hidden_norm_t000" in metrics
+    assert "train/sequence/hidden_norm_t50pct" in metrics
+    assert "train/sequence/hidden_norm_tlast" in metrics
+    assert "train/sequence/hidden_norm_last_to_first_ratio" in metrics

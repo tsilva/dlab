@@ -19,7 +19,7 @@ uv sync
 Run a debug training pass:
 
 ```bash
-uv run python train.py experiment=mnist_mlp trainer=debug dataset.num_workers=0 wandb.enabled=false
+uv run python train.py experiment=mnist_mlp trainer=debug dataset.num_workers=0
 ```
 
 ## Commands
@@ -27,7 +27,6 @@ uv run python train.py experiment=mnist_mlp trainer=debug dataset.num_workers=0 
 ```bash
 uv run python train.py experiment=mnist_mlp                         # run a named experiment
 uv run python train.py experiment=mnist_mlp optimizer.lr=1e-4       # override Hydra config values
-uv run python train.py experiment=mnist_vae wandb.enabled=false     # disable W&B for a local-only run
 uv run python train.py experiment=mnist_mlp litlogger.enabled=true  # enable LitLogger for a run
 uv run python train.py experiment=mnist_mlp launcher=modal          # submit one run to Modal
 uv run python train.py experiment=mnist_mlp launcher=modal_gpu      # Modal GPU defaults
@@ -92,6 +91,9 @@ Example:
 uv run --with wandb-workspaces python scripts/setup_wandb_workspaces.py --entity <wandb-entity> --stage 01_mlp_basics
 ```
 
+For a step-by-step manual debugging checklist, see
+[`research/debugging_playbook.md`](research/debugging_playbook.md).
+
 ## Execution launchers
 
 `dlab` uses Hydra launcher configs to choose where an experiment runs:
@@ -112,7 +114,7 @@ For a minimal RunPod Flash smoke test:
 
 ```bash
 uv run flash deploy --python-version 3.12
-FLASH_SENTINEL_TIMEOUT=600 uv run python train.py experiment=mnist_mlp trainer=debug launcher=runpod_flash wandb.enabled=false litlogger.enabled=false reports.enabled=false dataset.num_workers=0
+FLASH_SENTINEL_TIMEOUT=600 uv run python train.py experiment=mnist_mlp trainer=debug launcher=runpod_flash litlogger.enabled=false reports.enabled=false dataset.num_workers=0
 ```
 
 The first RunPod Flash call can spend several minutes starting a worker and installing dependencies. `FLASH_SENTINEL_TIMEOUT` extends the local client wait. Endpoint hardware and scaling are read from `configs/launcher/runpod_flash.yaml` during `flash deploy`, so redeploy after changing GPU, workers, dependencies, or timeout settings.
@@ -126,7 +128,8 @@ Remote providers receive the project source needed to import `src`, dependency m
 - Hydra configs in `configs/` are the main execution interface.
 - Local datasets are cached under `datasets/`; generated runs, metrics, checkpoints, and resolved configs go under `outputs/`.
 - Reports are written to `reports/` when `reports.enabled` is true.
-- W&B is enabled by default; LitLogger is optional and disabled by default in `configs/train.yaml`.
+- W&B is enabled by default for local and remote runs. Each W&B run stores the resolved config, target metadata under `run_target`, and target summary fields such as `target/provider`, `target/launcher`, CPU, memory, and GPU details.
+- LitLogger is optional and disabled by default in `configs/train.yaml`.
 - This is a local research workspace, not production ML infrastructure.
 
 ## Architecture

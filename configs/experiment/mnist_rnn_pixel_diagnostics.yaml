@@ -1,0 +1,52 @@
+# @package _global_
+
+# Diagnostic rerun of the 784-step pixel-sequence RNN failure probe. This keeps
+# the failure setup fixed and adds W&B-visible recurrent diagnostics.
+defaults:
+  - override /dataset: mnist
+  - override /model: rnn
+  - override /optimizer: adam
+
+task: classification
+
+run:
+  project: sequence_modeling_basics
+  stage: 04_sequence_modeling
+  study: 003_pixel_rnn_diagnostic_rerun
+  question: Can timestep hidden-state, entropy, and recurrent-gradient diagnostics identify why the 784-step vanilla RNN fails?
+  hypothesis: The pixel-sequence RNN should remain at chance while W&B diagnostics show high prediction entropy and weak recurrent signal flow compared with the classifier head or input kernel.
+  goal: Make the vanilla RNN failure mechanism diagnosable in W&B before testing GRU and LSTM fixes.
+  expected_pattern: Validation accuracy should stay near chance; prediction entropy should remain high; recurrent-gradient and hidden-state panels should reveal weak temporal signal propagation.
+  controlled_variables: [dataset, optimizer, learning_rate, batch_size, epoch_budget, recurrent_hidden_dim, sequence_axis]
+  changed_variables: [sequence_diagnostics.enabled]
+  tags: [mnist, sequence-modeling, rnn, failure-probe, pixel-sequence, diagnostics]
+
+dataset:
+  batch_size: 128
+
+model:
+  params:
+    input_size: null
+    hidden_dim: 128
+    num_layers: 1
+    dropout: 0.0
+    rnn_type: rnn
+    bidirectional: false
+    pooling: last
+    sequence_axis: pixels
+
+optimizer:
+  lr: 0.001
+
+trainer:
+  max_epochs: 5
+  gradient_clip_val: 1.0
+
+gradient_flow:
+  enabled: true
+  log_every_n_steps: 50
+
+sequence_diagnostics:
+  enabled: true
+  log_every_n_steps: 50
+  log_validation: true

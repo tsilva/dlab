@@ -1,0 +1,36 @@
+id: sequence_modeling_basics
+title: Sequence Modeling Basics
+status: active
+
+objective: >
+  Learn recurrent sequence modeling by treating MNIST images as row sequences and comparing recurrent classifiers under low compute budgets.
+
+success_criteria:
+  primary_metric: val/acc
+  target: null
+  selection_metric: val/acc
+  test_policy: >
+    Select checkpoints by validation metrics only. Evaluate test metrics only for
+    final milestone candidates or explicitly approved confirmation runs.
+
+constraints:
+  dataset: mnist
+  external_data: false
+  max_epochs: null
+  seeds_for_final_confirmation: 3
+
+wandb:
+  entity: tsilva
+  project: dlab
+  artifact_policy: durable_remote
+  run_project: sequence_modeling_basics
+
+checkpoint_policy:
+  durable_store: wandb_artifacts
+  keep:
+    - best validation checkpoint for completed experiments
+    - all final confirmation seed checkpoints
+    - diagnostically important failed checkpoints
+  discard:
+    - routine epoch checkpoints
+    - superseded exploratory checkpoints without unique research value

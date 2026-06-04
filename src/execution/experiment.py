@@ -7,7 +7,7 @@ from hashlib import sha1
 from pathlib import Path
 from typing import Any
 
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, open_dict
 from pytorch_lightning import Callback
 from pytorch_lightning.callbacks import WeightAveraging
 
@@ -51,6 +51,7 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     from src.utils.config import config_to_dict, save_resolved_config
     from src.utils.naming import resolve_run_identity
     from src.utils.reports import write_experiment_report
+    from src.utils.run_target import collect_run_target, run_target_summary
     from src.utils.seed import seed_everything
     from src.utils.wandb import log_wandb_post_run, parameter_count, wandb_notes, wandb_tags
 
@@ -60,6 +61,9 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     run_identity = resolve_run_identity(cfg)
     cfg.experiment_name = run_identity.name
     cfg.run.group = run_identity.group
+    run_target = collect_run_target(cfg)
+    with open_dict(cfg):
+        cfg.run_target = OmegaConf.create(run_target)
 
     datamodule = build_datamodule(cfg.dataset, seed=int(cfg.seed))
     model = build_model(cfg.model, datamodule.info)
@@ -70,7 +74,9 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     checkpoint_dir = run_dir / "checkpoints"
     evaluation_checkpoint_path = _materialize_evaluation_checkpoint(cfg, run_dir)
     save_resolved_config(cfg, run_dir)
-    resume_ckpt_path = None if _evaluation_only(cfg) else _resolve_resume_checkpoint(cfg, checkpoint_dir)
+    resume_ckpt_path = (
+        None if _evaluation_only(cfg) else _resolve_resume_checkpoint(cfg, checkpoint_dir)
+    )
 
     callbacks: list[pl.Callback] = [LearningRateMonitor(logging_interval="step")]
     if resume_ckpt_path is not None:
@@ -121,7 +127,7 @@ def run_experiment(cfg: DictConfig) -> RunResult:
     loggers: list[pl.loggers.Logger] = [
         CSVLogger(save_dir=str(run_dir), name="csv", version=""),
     ]
-    if cfg.wandb.enabled:
+    if _wandb_enabled(cfg):
         loggers.append(
             WandbLogger(
                 project=cfg.wandb.project,
@@ -201,6 +207,7 @@ def run_experiment(cfg: DictConfig) -> RunResult:
         metrics.update(test_results[0])
     metrics.update(model_summary)
     metrics["runtime/seconds"] = elapsed_seconds
+    metrics.update(run_target_summary(run_target))
     if evaluation_checkpoint_path is not None:
         metrics["evaluation/checkpoint_path"] = evaluation_checkpoint_path
     metrics.update(_resume_metrics(resume_ckpt_path))
@@ -223,7 +230,11 @@ def run_experiment(cfg: DictConfig) -> RunResult:
             **tta_results,
             **early_stopping_metrics,
             **_resume_metrics(resume_ckpt_path),
-            **({"evaluation/checkpoint_path": evaluation_checkpoint_path} if evaluation_checkpoint_path else {}),
+            **(
+                {"evaluation/checkpoint_path": evaluation_checkpoint_path}
+                if evaluation_checkpoint_path
+                else {}
+            ),
         },
     )
 
@@ -300,7 +311,9 @@ def _download_wandb_artifact_file(
     api = wandb.Api()
     artifact = api.artifact(artifact_ref)
     artifact_dir_name = "artifact-" + sha1(artifact_ref.encode("utf-8")).hexdigest()[:12]
-    artifact_dir = Path(artifact.download(root=str(run_dir / "evaluation_checkpoints" / artifact_dir_name)))
+    artifact_dir = Path(
+        artifact.download(root=str(run_dir / "evaluation_checkpoints" / artifact_dir_name))
+    )
     if artifact_file is None:
         matches = sorted(artifact_dir.glob("checkpoints/*.ckpt"))
         if len(matches) != 1:
@@ -312,7 +325,9 @@ def _download_wandb_artifact_file(
     else:
         checkpoint_path = artifact_dir / artifact_file
     if not checkpoint_path.exists():
-        raise FileNotFoundError(f"W&B artifact file does not exist after download: {checkpoint_path}")
+        raise FileNotFoundError(
+            f"W&B artifact file does not exist after download: {checkpoint_path}"
+        )
     return str(checkpoint_path)
 
 
@@ -331,11 +346,18 @@ def _run_tta_evaluation_if_enabled(
         return {}
 
     split = str(tta_cfg.get("split", "val"))
-    ckpt_path = tta_cfg.get("ckpt_path", cfg.get("evaluation", {}).get("selection", {}).get("ckpt_path", "best"))
+    ckpt_path = tta_cfg.get(
+        "ckpt_path",
+        cfg.get("evaluation", {}).get("selection", {}).get("ckpt_path", "best"),
+    )
     selected_path = _checkpoint_path_for_eval(trainer, ckpt_path)
     if selected_path is None:
         return {}
-    _load_lit_module_checkpoint(lit_module, selected_path, weights_only=bool(tta_cfg.get("weights_only", False)))
+    _load_lit_module_checkpoint(
+        lit_module,
+        selected_path,
+        weights_only=bool(tta_cfg.get("weights_only", False)),
+    )
 
     if split == "val":
         if hasattr(datamodule, "setup"):
@@ -349,8 +371,8 @@ def _run_tta_evaluation_if_enabled(
 
     import torch
 
-    from src.evaluation import evaluate_classification_tta
     from src.datasets.vision import normalization_stats
+    from src.evaluation import evaluate_classification_tta
 
     device = getattr(getattr(trainer, "strategy", None), "root_device", lit_module.device)
     transforms = list(tta_cfg.get("transforms", ["identity", "hflip"]))
@@ -394,7 +416,12 @@ def _checkpoint_path_for_eval(trainer: Any, ckpt_path: Any) -> str | None:
     return str(ckpt_path)
 
 
-def _load_lit_module_checkpoint(lit_module: Any, checkpoint_path: str, *, weights_only: bool) -> None:
+def _load_lit_module_checkpoint(
+    lit_module: Any,
+    checkpoint_path: str,
+    *,
+    weights_only: bool,
+) -> None:
     import torch
 
     checkpoint = torch.load(
@@ -455,6 +482,10 @@ def _wandb_run_id(cfg: DictConfig) -> str | None:
     entity = wandb_cfg.get("entity") or ""
     source = f"{entity}/{wandb_cfg.get('project')}/{cfg.experiment_name}"
     return "dlab-" + sha1(source.encode("utf-8")).hexdigest()[:24]
+
+
+def _wandb_enabled(cfg: DictConfig) -> bool:
+    return bool(cfg.get("wandb", {}).get("enabled", True))
 
 
 def _modal_volume_commit_enabled(cfg: DictConfig) -> bool:
