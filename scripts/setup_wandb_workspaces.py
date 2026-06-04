@@ -34,8 +34,12 @@ class WorkspaceSpec:
     max_runs: int = 20
 
 
-def build_workspace_specs(stage: str | None = None) -> dict[str, WorkspaceSpec]:
-    suffix = f" - {stage}" if stage else ""
+def build_workspace_specs(
+    stage: str | None = None,
+    run_project: str | None = None,
+) -> dict[str, WorkspaceSpec]:
+    suffix_parts = [part for part in (run_project, stage) if part]
+    suffix = f" - {' - '.join(suffix_parts)}" if suffix_parts else ""
     return {
         "training": WorkspaceSpec(
             name=f"Training monitor{suffix}",
@@ -463,6 +467,7 @@ def save_workspaces(
     project: str,
     specs: list[WorkspaceSpec],
     stage: str | None,
+    run_project: str | None,
 ) -> list[str]:
     try:
         import wandb_workspaces.reports.v2 as wr
@@ -492,7 +497,7 @@ def save_workspaces(
                 tooltip_color_run_names=True,
                 auto_expand_panel_search_results=True,
             ),
-            runset_settings=runset_settings(ws, stage),
+            runset_settings=runset_settings(ws, stage=stage, run_project=run_project),
             auto_generate_panels=False,
         )
         saved = workspace.save()
@@ -535,10 +540,11 @@ def section_panel_settings(ws: Any, section: SectionSpec) -> Any | None:
     )
 
 
-def runset_settings(ws: Any, stage: str | None) -> Any:
+def runset_settings(ws: Any, stage: str | None, run_project: str | None = None) -> Any:
     kwargs = {
         "pinned_columns": [
             "run:displayName",
+            "config:run.project",
             "config:run.stage",
             "config:run.study",
             "config:dataset.name",
@@ -549,8 +555,13 @@ def runset_settings(ws: Any, stage: str | None) -> Any:
             "summary:checkpoint/best_score",
         ],
     }
+    filters = []
+    if run_project:
+        filters.append(f"Config('run.project') = '{run_project}'")
     if stage:
-        kwargs["filters"] = f"Config('run.stage') = '{stage}'"
+        filters.append(f"Config('run.stage') = '{stage}'")
+    if filters:
+        kwargs["filters"] = " AND ".join(filters)
     return ws.RunsetSettings(**kwargs)
 
 
@@ -572,6 +583,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project", default=os.environ.get("WANDB_PROJECT", PROJECT_DEFAULT))
     parser.add_argument("--stage", default=None, help="Optional run.stage value to filter views.")
     parser.add_argument(
+        "--run-project",
+        default=None,
+        help="Optional run.project value to filter views.",
+    )
+    parser.add_argument(
         "--view",
         action="append",
         choices=VIEW_CHOICES,
@@ -583,7 +599,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    specs_by_name = build_workspace_specs(stage=args.stage)
+    specs_by_name = build_workspace_specs(stage=args.stage, run_project=args.run_project)
     selected = args.view or list(VIEW_CHOICES)
     specs = [specs_by_name[name] for name in selected]
 
@@ -594,7 +610,13 @@ def main() -> None:
     if not args.entity:
         raise SystemExit("Provide --entity or set WANDB_ENTITY.")
 
-    urls = save_workspaces(entity=args.entity, project=args.project, specs=specs, stage=args.stage)
+    urls = save_workspaces(
+        entity=args.entity,
+        project=args.project,
+        specs=specs,
+        stage=args.stage,
+        run_project=args.run_project,
+    )
     for url in urls:
         print(url)
 

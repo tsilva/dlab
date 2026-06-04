@@ -20,6 +20,7 @@ MODEL_REGISTRY = {
     "cnn": ConvNet,
     "resnet18": ResNetClassifier,
     "densenet": TimmClassifier,
+    "timm": TimmClassifier,
     "wide_resnet": WideResNet,
     "autoencoder": Autoencoder,
     "vae": VAE,
@@ -47,13 +48,13 @@ def build_model(model_cfg: DictConfig, dataset_info: Mapping[str, Any] | None = 
     if name == "mlp":
         params.setdefault("input_dim", image_dim(input_shape))
         params.setdefault("num_classes", dataset_info.get("num_classes", 10))
-    elif name in {"cnn", "resnet18", "densenet", "wide_resnet"}:
+    elif name in {"cnn", "resnet18", "densenet", "timm", "wide_resnet"}:
         params.setdefault("in_channels", input_shape[0])
         params.setdefault("num_classes", dataset_info.get("num_classes", 10))
         if name == "wide_resnet":
             params.pop("stem", None)
-        elif name == "densenet":
-            # DenseNet architecture probes may inherit from WRN recipes; keep
+        elif name in {"densenet", "timm"}:
+            # Timm architecture probes may inherit from WRN recipes; keep
             # those experiment files compact by ignoring WRN-only model params.
             params.pop("depth", None)
             params.pop("width_factor", None)

@@ -56,6 +56,21 @@ default W&B workspace.
 
 When running training experiments on Modal:
 
+- Before starting any run, sweep, or experiment, estimate the expected compute
+  cost and ask the user for approval. Do not launch the run until the user
+  approves the estimate.
+- Separate the cost estimate into:
+  - expected cost: the best forecast from measured prior epoch/runtime data,
+    model size, likely early stopping, hardware rate, setup/download overhead,
+    and artifact/evaluation overhead;
+  - max approved budget: the conservative spend ceiling the user is approving;
+  - assumptions: expected epochs or steps, hardware, provider rate, and whether
+    CPU, memory, downloads, artifact upload, and retries/preemptions are included.
+  Do not present a padded ceiling as the expected cost.
+- At the end of any run, sweep, or experiment, report the actual measured cost
+  alongside the result summary. Use provider billing data when available;
+  otherwise compute an estimate from wall-clock/runtime, hardware, and the
+  current provider price, and say that it is estimated.
 - Use preemptible GPU instances by default. Keep `launcher.nonpreemptible:
   false` unless the user explicitly asks to pay the nonpreemptible premium for a
   specific run.

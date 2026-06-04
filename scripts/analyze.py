@@ -23,6 +23,7 @@ def main() -> None:
     wandb_study.add_argument("--project", default="dlab")
     wandb_study.add_argument("--entity", default=None)
     wandb_study.add_argument("--stage", default=None)
+    wandb_study.add_argument("--run-project", default=None)
     wandb_study.add_argument("--metric", default="val/loss")
     wandb_study.add_argument("--goal", default="minimize", choices=["minimize", "maximize"])
     wandb_study.add_argument("--report", action="store_true")
@@ -38,6 +39,7 @@ def main() -> None:
             project=args.project,
             entity=args.entity,
             stage=args.stage,
+            run_project=args.run_project,
             study=args.study,
             metric=args.metric,
             goal=args.goal,
@@ -47,6 +49,7 @@ def main() -> None:
             path = write_wandb_study_report(
                 df,
                 study=args.study,
+                run_project=args.run_project,
                 metric=args.metric,
                 goal=args.goal,
                 output_dir=args.reports_dir,

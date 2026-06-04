@@ -105,3 +105,19 @@ def test_build_model_ignores_wide_resnet_params_when_inheriting_densenet_recipe(
     assert model.net.features.conv0.stride == (1, 1)
     assert isinstance(model.net.features.pool0, nn.Identity)
     assert model(torch.randn(2, 3, 32, 32)).shape == (2, 10)
+
+
+def test_timm_classifier_can_replace_convnext_patch_stem() -> None:
+    model = TimmClassifier(
+        model_name="convnext_tiny",
+        in_channels=3,
+        num_classes=10,
+        pretrained=False,
+        stem={"kernel_size": 2, "stride": 2, "padding": 0, "bias": True},
+    )
+
+    assert model.net.stem[0].kernel_size == (2, 2)
+    assert model.net.stem[0].stride == (2, 2)
+    assert model.net.stem[0].padding == (0, 0)
+    assert model.net.stem[0].bias is not None
+    assert model(torch.randn(2, 3, 32, 32)).shape == (2, 10)

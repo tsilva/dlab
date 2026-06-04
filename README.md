@@ -53,7 +53,25 @@ Run names are generated automatically from dataset, model, study, optimizer, lea
 
 `configs/roadmap/default.yaml` defines the learning path as stages. Each stage lists studies, and each study maps to either `configs/sweep/<study>.yaml` or `configs/experiment/<study>.yaml`.
 
-Study and sweep configs can carry learning metadata under `run`: stage, study, question, hypothesis, expected pattern, controlled variables, changed variables, and tags. This metadata is forwarded into W&B run tags, notes, config, and reports.
+Study and sweep configs can carry learning metadata under `run`: project, stage, study, question, hypothesis, expected pattern, controlled variables, changed variables, and tags. This metadata is forwarded into W&B run tags, notes, config, and reports.
+
+## Research projects
+
+Milestone-level research records live in `research/<project_id>/`. Use a research
+project for the human decision trail around a milestone, and keep generated
+artifacts in `outputs/`, `reports/`, and W&B Artifacts. Set `run.project` in
+Hydra configs so W&B runs and artifacts can be filtered back to the local
+research project.
+
+The generated dlab run name remains the shared cross-reference key:
+
+- `outputs/<run_name>/`
+- `reports/<run_name>.md`
+- W&B run name `<run_name>`
+- W&B artifact `<run_name>-run`
+
+W&B Artifacts are the durable remote store for checkpoints. Local checkpoint
+copies under `checkpoints/` are cache/archive references and are ignored by Git.
 
 W&B is intended to be the comparison layer:
 

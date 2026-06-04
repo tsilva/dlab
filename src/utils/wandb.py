@@ -17,7 +17,7 @@ def wandb_tags(cfg: DictConfig) -> list[str]:
         str(cfg.optimizer.name),
         *_as_list(cfg.run.get("tags", [])),
     ]
-    for key in ("stage", "study", "sweep_name"):
+    for key in ("project", "stage", "study", "sweep_name"):
         value = cfg.run.get(key)
         if value:
             tags.append(str(value))
@@ -404,7 +404,21 @@ def _log_run_artifact(
         artifact.add_dir(str(checkpoint_dir), name="checkpoints")
     if report_path and Path(report_path).exists():
         artifact.add_file(report_path, name=Path(report_path).name)
-    wandb_run.log_artifact(artifact)
+    wandb_run.log_artifact(artifact, aliases=_artifact_aliases(cfg))
+
+
+def _artifact_aliases(cfg: DictConfig) -> list[str]:
+    aliases = ["latest"]
+    for prefix, key in (
+        ("project", "project"),
+        ("stage", "stage"),
+        ("study", "study"),
+        ("group", "group"),
+    ):
+        value = cfg.run.get(key)
+        if value:
+            aliases.append(_wandb_artifact_name(f"{prefix}-{value}"))
+    return sorted(set(aliases))
 
 
 def _wandb_artifact_name(name: str, max_length: int = 128) -> str:
