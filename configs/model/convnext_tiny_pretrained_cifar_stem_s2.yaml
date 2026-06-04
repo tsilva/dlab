@@ -1,0 +1,18 @@
+name: timm
+params:
+  # ImageNet-pretrained ConvNeXt-Tiny from timm, with only the first patchify
+  # convolution replaced for CIFAR-10's 32x32 images.
+  model_name: convnext_tiny
+  pretrained: true
+
+  stem:
+    # ConvNeXt-Tiny normally starts with a 4x4 stride-4 patchify conv, which
+    # maps CIFAR-10 from 32x32 directly to 8x8 tokens. This 2x2 stride-2 stem
+    # keeps a 16x16 token grid so small-object detail is compressed less
+    # aggressively. The new stem conv is randomly initialized; the remaining
+    # ConvNeXt backbone and classifier head are fine-tuned from pretrained
+    # weights in the experiment config.
+    kernel_size: 2
+    stride: 2
+    padding: 0
+    bias: true

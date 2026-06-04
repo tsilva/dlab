@@ -1,0 +1,2 @@
+experiment_id,run_name,seed,wandb_run_id,wandb_run_url,wandb_artifact,artifact_version,local_output_dir,local_report_path,local_checkpoint,best_val_acc,best_val_loss,selected_val_acc,test_acc,decision
+002_resnet18_cifar_stem,cifar10-resnet18_cifar-stem_adamw-lr0p0003-bs128_seed1337,1337,,,cifar10-resnet18_cifar-stem_adamw-lr0p0003-bs128_seed1337-run,unknown,outputs/cifar10-resnet18_cifar-stem_adamw-lr0p0003-bs128_seed1337,,outputs/cifar10-resnet18_cifar-stem_adamw-lr0p0003-bs128_seed1337/checkpoints/003.ckpt,0.6948,0.8702,,,"keep stem"

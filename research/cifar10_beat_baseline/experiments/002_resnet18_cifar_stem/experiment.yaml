@@ -1,0 +1,37 @@
+id: 002_resnet18_cifar_stem
+project: cifar10_beat_baseline
+status: migrated
+
+run:
+  project: cifar10_beat_baseline
+  stage: 03_dataset_difficulty
+  study: cifar10_resnet18_cifar_stem
+
+question: >
+  Does replacing the ImageNet-style ResNet-18 input stem with a CIFAR-sized stem
+  improve validation behavior on CIFAR-10?
+
+hypothesis: >
+  A 3x3 stride-1 stem without max pooling should preserve spatial detail and
+  improve validation accuracy/loss relative to the default stem.
+
+selection:
+  metric: val/acc
+  mode: max
+  test_used_for_selection: false
+
+controlled_variables:
+  - dataset
+  - model_family
+  - optimizer
+  - learning_rate
+  - weight_decay
+  - batch_size
+  - epoch_budget
+
+changed_variables:
+  - model.params.stem
+
+artifact_key:
+  naming_source: dlab_generated_run_name
+  wandb_artifact_suffix: -run

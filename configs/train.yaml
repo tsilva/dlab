@@ -12,6 +12,7 @@ seed: 1337
 task: classification
 
 run:
+  project: null
   study: baseline
   stage: null
   group: null

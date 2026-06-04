@@ -1,0 +1,26 @@
+id: 001_example_experiment
+project: example_project
+status: planned
+
+run:
+  project: example_project
+  stage: null
+  study: 001_example_experiment
+
+question: >
+  State one research question.
+
+hypothesis: >
+  State the expected mechanism or result.
+
+selection:
+  metric: val/acc
+  mode: max
+  test_used_for_selection: false
+
+controlled_variables: []
+changed_variables: []
+
+artifact_key:
+  naming_source: dlab_generated_run_name
+  wandb_artifact_suffix: -run

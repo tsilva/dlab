@@ -39,6 +39,40 @@ def test_workspace_specs_create_stage_specific_views() -> None:
     ]
 
 
+def test_workspace_specs_create_project_specific_views() -> None:
+    module = _load_module()
+
+    specs = module.build_workspace_specs(
+        stage="03_dataset_difficulty",
+        run_project="cifar10_beat_baseline",
+    )
+
+    assert specs["training"].name == (
+        "Training monitor - cifar10_beat_baseline - 03_dataset_difficulty"
+    )
+
+
+def test_runset_settings_filter_project_and_stage() -> None:
+    module = _load_module()
+
+    class WorkspaceStub:
+        @staticmethod
+        def RunsetSettings(**kwargs):
+            return kwargs
+
+    settings = module.runset_settings(
+        WorkspaceStub,
+        stage="03_dataset_difficulty",
+        run_project="cifar10_beat_baseline",
+    )
+
+    assert "config:run.project" in settings["pinned_columns"]
+    assert settings["filters"] == (
+        "Config('run.project') = 'cifar10_beat_baseline' AND "
+        "Config('run.stage') = '03_dataset_difficulty'"
+    )
+
+
 def test_workspace_specs_cover_logged_media_and_forensics_keys() -> None:
     module = _load_module()
 

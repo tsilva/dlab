@@ -1,0 +1,28 @@
+id: 001_resnet18_gradclip_baseline
+project: cifar10_beat_baseline
+status: migrated
+
+run:
+  project: cifar10_beat_baseline
+  stage: 03_dataset_difficulty
+  study: cifar10_resnet18_gradclip_baseline
+
+question: >
+  How does a standard ResNet-18 baseline behave on CIFAR-10 when gradient
+  clipping and gradient-flow diagnostics are enabled?
+
+hypothesis: >
+  The default ResNet-style model should establish a baseline but may show
+  gradient pressure and weak validation performance on CIFAR-10.
+
+selection:
+  metric: val/acc
+  mode: max
+  test_used_for_selection: false
+
+controlled_variables: []
+changed_variables: []
+
+artifact_key:
+  naming_source: dlab_generated_run_name
+  wandb_artifact_suffix: -run

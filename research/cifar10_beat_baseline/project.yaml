@@ -1,0 +1,38 @@
+id: cifar10_beat_baseline
+title: Beat CIFAR-10 baseline
+status: active
+
+objective: >
+  Improve CIFAR-10 classification performance through controlled architecture,
+  optimization, and augmentation experiments while keeping test metrics separate
+  from checkpoint selection.
+
+success_criteria:
+  primary_metric: test/acc
+  target: null
+  selection_metric: val/acc
+  test_policy: >
+    Select checkpoints by validation metrics only. Evaluate the CIFAR-10 test set
+    only for final milestone candidates or explicitly approved confirmation runs.
+
+constraints:
+  dataset: cifar10
+  external_data: false
+  max_epochs: null
+  seeds_for_final_confirmation: 3
+
+wandb:
+  entity: tsilva
+  project: dlab
+  artifact_policy: durable_remote
+  run_project: cifar10_beat_baseline
+
+checkpoint_policy:
+  durable_store: wandb_artifacts
+  keep:
+    - best validation checkpoint for completed experiments
+    - all final confirmation seed checkpoints
+    - diagnostically important failed checkpoints
+  discard:
+    - routine epoch checkpoints
+    - superseded exploratory checkpoints without unique research value

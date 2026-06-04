@@ -1,0 +1,34 @@
+id: example_project
+title: Example research project
+status: active
+
+objective: >
+  State the milestone-level objective.
+
+success_criteria:
+  primary_metric: val/acc
+  target: null
+  selection_metric: val/acc
+  test_policy: >
+    Do not use test metrics for checkpoint selection.
+
+constraints:
+  dataset: null
+  external_data: false
+  max_epochs: null
+  seeds_for_final_confirmation: null
+
+wandb:
+  entity: tsilva
+  project: dlab
+  artifact_policy: durable_remote
+
+checkpoint_policy:
+  durable_store: wandb_artifacts
+  keep:
+    - best validation checkpoint for completed experiments
+    - all final confirmation seed checkpoints
+    - diagnostically important failed checkpoints
+  discard:
+    - routine epoch checkpoints
+    - superseded exploratory checkpoints without unique research value

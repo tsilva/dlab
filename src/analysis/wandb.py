@@ -8,6 +8,7 @@ import pandas as pd
 DEFAULT_COLUMNS = [
     "name",
     "state",
+    "project",
     "stage",
     "study",
     "dataset",
@@ -31,6 +32,7 @@ def load_wandb_study_runs(
     study: str,
     entity: str | None = None,
     stage: str | None = None,
+    run_project: str | None = None,
 ) -> pd.DataFrame:
     try:
         import wandb
@@ -44,6 +46,8 @@ def load_wandb_study_runs(
         row = _run_row(run)
         if row.get("study") != study:
             continue
+        if run_project and row.get("project") != run_project:
+            continue
         if stage and row.get("stage") != stage:
             continue
         rows.append(row)
@@ -56,10 +60,17 @@ def summarize_wandb_study(
     study: str,
     entity: str | None = None,
     stage: str | None = None,
+    run_project: str | None = None,
     metric: str = "val/loss",
     goal: str = "minimize",
 ) -> pd.DataFrame:
-    df = load_wandb_study_runs(project=project, entity=entity, study=study, stage=stage)
+    df = load_wandb_study_runs(
+        project=project,
+        entity=entity,
+        study=study,
+        stage=stage,
+        run_project=run_project,
+    )
     if df.empty:
         return df
     sort_ascending = goal != "maximize"
@@ -72,17 +83,22 @@ def write_wandb_study_report(
     df: pd.DataFrame,
     *,
     study: str,
+    run_project: str | None = None,
     metric: str = "val/loss",
     goal: str = "minimize",
     output_dir: str | Path = "reports",
 ) -> Path:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    report_path = output_path / f"wandb-study-{study}.md"
+    report_slug = f"{run_project}-{study}" if run_project else study
+    report_path = output_path / f"wandb-study-{report_slug}.md"
+    title = f"W&B Study: {study}"
+    if run_project:
+        title = f"{title} ({run_project})"
 
     if df.empty:
         body = [
-            f"# W&B Study: {study}",
+            f"# {title}",
             "",
             "No matching runs found.",
             "",
@@ -96,7 +112,7 @@ def write_wandb_study_report(
     grouped = _grouped_metric_summary(df, metric, changed_columns, goal)
 
     body = [
-        f"# W&B Study: {study}",
+        f"# {title}",
         "",
         "## Best Run",
         "",
@@ -136,6 +152,7 @@ def _run_row(run: Any) -> dict[str, Any]:
         "id": getattr(run, "id", None),
         "name": getattr(run, "name", None),
         "state": getattr(run, "state", None),
+        "project": run_cfg.get("project"),
         "stage": run_cfg.get("stage"),
         "study": run_cfg.get("study"),
         "sweep_name": run_cfg.get("sweep_name"),

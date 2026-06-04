@@ -12,6 +12,7 @@ defaults:
 task: classification
 
 run:
+  project: cifar10_beat_baseline
   stage: 03_dataset_difficulty
   study: baseline
   goal: Establish a CIFAR-10 baseline on a standard ResNet-style model.

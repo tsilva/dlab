@@ -61,6 +61,8 @@ temp/
 *.swo
 
 # Model artifacts
+checkpoints/*
+!checkpoints/.gitkeep
 *.ckpt
 *.pt
 *.pth

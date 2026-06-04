@@ -1,0 +1,43 @@
+id: 003_wrn28_10_cutmix_vs_erasing
+project: cifar10_beat_baseline
+status: migrated
+
+run:
+  project: cifar10_beat_baseline
+  stage: 03_dataset_difficulty
+  study: cifar10_wrn28_10_cutmix_vs_erasing
+
+question: >
+  Does CutMix or light RandomErasing improve the current best WRN-28-10 CIFAR-10
+  recipe across seeds?
+
+hypothesis: >
+  CutMix should help if patch-level label mixing improves spatial robustness;
+  RandomErasing should help if the model over-relies on small local cues.
+
+selection:
+  metric: val/acc
+  mode: max
+  test_used_for_selection: false
+
+controlled_variables:
+  - dataset
+  - model
+  - optimizer
+  - learning_rate
+  - weight_decay
+  - batch_size
+  - trainer.max_epochs
+  - optimizer.scheduler
+  - loss.label_smoothing
+  - loss.mixup
+  - early_stopping
+  - evaluation.selection
+
+changed_variables:
+  - experiment
+  - seed
+
+artifact_key:
+  naming_source: dlab_generated_run_name
+  wandb_artifact_suffix: -run

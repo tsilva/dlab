@@ -1,0 +1,10 @@
+name: timm
+params:
+  # Generic ImageNet-pretrained ConvNeXt-Tiny from timm. This tests general
+  # visual pretraining transfer, not CIFAR-specific pretraining.
+  model_name: convnext_tiny
+  pretrained: true
+
+  # Leave the ConvNeXt stem unchanged. Unlike ImageNet ResNet/DenseNet stems,
+  # ConvNeXt-Tiny accepts 32x32 CIFAR inputs without a custom stem path.
+  stem: null

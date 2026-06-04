@@ -305,17 +305,25 @@ class TimmClassifier(nn.Module):
         conv_name = "conv1"
         pool_parent = self.net
         pool_name = "maxpool"
-        if not hasattr(conv_parent, conv_name) and hasattr(self.net, "features"):
+        if not hasattr(conv_parent, conv_name) and _has_sequential_stem_conv(self.net):
+            conv_parent = self.net.stem
+            conv_name = "0"
+            pool_parent = None
+            pool_name = None
+        elif not hasattr(conv_parent, conv_name) and hasattr(self.net, "features"):
             conv_parent = self.net.features
             conv_name = "conv0"
             pool_parent = self.net.features
             pool_name = "pool0"
-        if not hasattr(conv_parent, conv_name) or not hasattr(pool_parent, pool_name):
+        if not _has_named_module(conv_parent, conv_name) or (
+            pool_parent is not None and pool_name is not None and not hasattr(pool_parent, pool_name)
+        ):
             raise ValueError(
-                "Configured timm stem replacement requires conv1/maxpool or features.conv0/pool0."
+                "Configured timm stem replacement requires conv1/maxpool, "
+                "features.conv0/pool0, or stem[0]."
             )
 
-        current_conv = getattr(conv_parent, conv_name)
+        current_conv = _get_named_module(conv_parent, conv_name)
         if not isinstance(current_conv, nn.Conv2d):
             raise ValueError("Configured timm stem replacement requires a single stem conv module.")
 
@@ -323,26 +331,27 @@ class TimmClassifier(nn.Module):
         kernel_size = int(stem.get("kernel_size", 7))
         stride = int(stem.get("stride", 2))
         padding = int(stem.get("padding", kernel_size // 2))
-        bias = bool(stem.get("bias", False))
+        bias = bool(stem.get("bias", current_conv.bias is not None))
         max_pool = bool(stem.get("max_pool", True))
 
-        setattr(
+        _set_named_module(
             conv_parent,
             conv_name,
             nn.Conv2d(
-            in_channels,
-            out_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-            bias=bias,
+                in_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+                bias=bias,
             ),
         )
-        setattr(
-            pool_parent,
-            pool_name,
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1) if max_pool else nn.Identity(),
-        )
+        if pool_parent is not None and pool_name is not None:
+            setattr(
+                pool_parent,
+                pool_name,
+                nn.MaxPool2d(kernel_size=3, stride=2, padding=1) if max_pool else nn.Identity(),
+            )
 
 
 class ResNetClassifier(TimmClassifier):
@@ -351,6 +360,30 @@ class ResNetClassifier(TimmClassifier):
 
 def image_dim(input_shape: tuple[int, int, int] | list[int]) -> int:
     return math.prod(input_shape)
+
+
+def _has_sequential_stem_conv(module: nn.Module) -> bool:
+    stem = getattr(module, "stem", None)
+    return isinstance(stem, nn.Sequential) and len(stem) > 0 and isinstance(stem[0], nn.Conv2d)
+
+
+def _has_named_module(module: nn.Module, name: str) -> bool:
+    if name.isdigit() and isinstance(module, nn.Sequential):
+        return int(name) < len(module)
+    return hasattr(module, name)
+
+
+def _get_named_module(module: nn.Module, name: str) -> nn.Module:
+    if name.isdigit() and isinstance(module, nn.Sequential):
+        return module[int(name)]
+    return getattr(module, name)
+
+
+def _set_named_module(module: nn.Module, name: str, replacement: nn.Module) -> None:
+    if name.isdigit() and isinstance(module, nn.Sequential):
+        module[int(name)] = replacement
+        return
+    setattr(module, name, replacement)
 
 
 def _stage_depths(convs_per_stage: int | Sequence[int], num_stages: int) -> list[int]:
