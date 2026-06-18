@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import math
+import mimetypes
+import os
+import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import torch
 from omegaconf import DictConfig, ListConfig, OmegaConf
@@ -395,21 +399,128 @@ def _log_run_artifact(
     artifact = wandb.Artifact(
         name=_wandb_artifact_name(f"{cfg.experiment_name}-run"),
         type="run-output",
-        metadata=OmegaConf.to_container(cfg, resolve=True),
+        metadata=_artifact_metadata(cfg),
     )
+    storage_base_uri = _wandb_artifact_storage_uri(cfg)
     config_path = run_dir / "config.yaml"
     if config_path.exists():
-        artifact.add_file(str(config_path), name="config.yaml")
+        _add_artifact_file(artifact, config_path, "config.yaml", storage_base_uri)
     metrics_matches = sorted(run_dir.glob("**/metrics.csv"))
     for metrics_path in metrics_matches:
         metrics_name = metrics_path.relative_to(run_dir).as_posix()
-        artifact.add_file(str(metrics_path), name=f"metrics/{metrics_name}")
+        _add_artifact_file(artifact, metrics_path, f"metrics/{metrics_name}", storage_base_uri)
     checkpoint_dir = run_dir / "checkpoints"
     if checkpoint_dir.exists():
-        artifact.add_dir(str(checkpoint_dir), name="checkpoints")
+        for checkpoint_path in sorted(path for path in checkpoint_dir.rglob("*") if path.is_file()):
+            checkpoint_name = checkpoint_path.relative_to(checkpoint_dir).as_posix()
+            _add_artifact_file(
+                artifact,
+                checkpoint_path,
+                f"checkpoints/{checkpoint_name}",
+                storage_base_uri,
+            )
     if report_path and Path(report_path).exists():
-        artifact.add_file(report_path, name=Path(report_path).name)
+        _add_artifact_file(artifact, Path(report_path), Path(report_path).name, storage_base_uri)
     wandb_run.log_artifact(artifact, aliases=_artifact_aliases(cfg))
+
+
+def _artifact_metadata(cfg: DictConfig) -> dict[str, Any]:
+    metadata = OmegaConf.to_container(cfg, resolve=True)
+    storage_base_uri = _wandb_artifact_storage_uri(cfg)
+    if storage_base_uri:
+        metadata["artifact_storage"] = {
+            "mode": "s3_reference",
+            "base_uri": storage_base_uri,
+        }
+    return metadata
+
+
+def _add_artifact_file(
+    artifact: Any,
+    source_path: Path,
+    artifact_name: str,
+    storage_base_uri: str,
+) -> None:
+    if storage_base_uri:
+        reference_uri = _build_s3_artifact_uri(storage_base_uri, artifact.name, artifact_name)
+        _upload_s3_artifact(source_path, reference_uri)
+        artifact.add_reference(reference_uri, name=artifact_name)
+        print(f"wandb artifact reference added: {artifact_name} ({reference_uri})", flush=True)
+        return
+    artifact.add_file(str(source_path), name=artifact_name)
+
+
+def _wandb_artifact_storage_uri(cfg: DictConfig) -> str:
+    wandb_cfg = cfg.get("wandb", {})
+    configured_uri = str(wandb_cfg.get("artifact_storage_uri") or "").strip()
+    raw_uri = (
+        configured_uri
+        or os.environ.get("WANDB_ARTIFACT_STORAGE_URI", "").strip()
+        or os.environ.get("CHECKPOINT_BUCKET_URI", "").strip()
+    )
+    return _resolve_artifact_storage_uri(raw_uri, cfg)
+
+
+def _resolve_artifact_storage_uri(raw_uri: str, cfg: DictConfig) -> str:
+    if not raw_uri:
+        return ""
+
+    track_id = _research_track_id(cfg)
+    if not track_id:
+        return raw_uri
+
+    track_path = _s3_key_component(track_id)
+    resolved_uri = raw_uri.replace("{research_track_id}", track_path).replace(
+        "<research_track_id>",
+        track_path,
+    )
+    bucket, prefix = _parse_s3_uri(resolved_uri)
+    if prefix:
+        return f"s3://{bucket}/{prefix.rstrip('/')}"
+    return f"s3://{bucket}/{track_path}"
+
+
+def _research_track_id(cfg: DictConfig) -> str:
+    run_cfg = cfg.get("run", {})
+    return str(run_cfg.get("project") or "").strip()
+
+
+def _parse_s3_uri(uri: str) -> tuple[str, str]:
+    parsed = urlparse(uri)
+    if parsed.scheme != "s3" or not parsed.netloc:
+        raise ValueError(f"Expected an s3://bucket/prefix URI, got: {uri}")
+    return parsed.netloc, parsed.path.lstrip("/")
+
+
+def _build_s3_artifact_uri(base_uri: str, artifact_name: str, file_name: str) -> str:
+    bucket, prefix = _parse_s3_uri(base_uri)
+    key_parts = [
+        prefix.rstrip("/"),
+        _s3_key_component(artifact_name),
+        *[_s3_key_component(part) for part in file_name.split("/")],
+    ]
+    key = "/".join(part for part in key_parts if part)
+    return f"s3://{bucket}/{key}"
+
+
+def _upload_s3_artifact(source_path: Path, destination_uri: str) -> None:
+    bucket, key = _parse_s3_uri(destination_uri)
+
+    import boto3
+
+    endpoint_url = os.environ.get("AWS_S3_ENDPOINT_URL") or os.environ.get("AWS_ENDPOINT_URL_S3")
+    s3_client = boto3.client("s3", endpoint_url=endpoint_url)
+    content_type = mimetypes.guess_type(source_path.name)[0] or "application/octet-stream"
+    s3_client.upload_file(
+        str(source_path),
+        bucket,
+        key,
+        ExtraArgs={"ContentType": content_type},
+    )
+
+
+def _s3_key_component(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip("-") or "artifact"
 
 
 def _artifact_aliases(cfg: DictConfig) -> list[str]:

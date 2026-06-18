@@ -137,6 +137,12 @@ wandb:
   resume: allow
   mode: online
   log_model: false
+  # Optional s3://bucket/prefix base URI. If the URI has no prefix, the
+  # run.project research-track id is appended, e.g. CHECKPOINT_BUCKET_URI=s3://wandb
+  # becomes s3://wandb/<run.project>. Placeholders {research_track_id} and
+  # <research_track_id> are also supported. If null, falls back to
+  # WANDB_ARTIFACT_STORAGE_URI, then CHECKPOINT_BUCKET_URI.
+  artifact_storage_uri: null
   job_type: train
   log_code: false
   log_artifacts: true

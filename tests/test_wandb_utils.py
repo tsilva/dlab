@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 from omegaconf import OmegaConf
 
-from src.utils.wandb import _artifact_aliases, _class_names, log_wandb_post_run, wandb_tags
+from src.utils.wandb import (
+    _artifact_aliases,
+    _build_s3_artifact_uri,
+    _class_names,
+    _log_run_artifact,
+    _wandb_artifact_storage_uri,
+    log_wandb_post_run,
+    wandb_tags,
+)
 
 
 def test_class_names_use_underlying_subset_dataset_classes() -> None:
@@ -74,6 +84,123 @@ def test_artifact_aliases_include_research_project_keys() -> None:
         "project-cifar10_beat_baseline",
         "stage-03_dataset_difficulty",
         "study-001_resnet18_baseline",
+    ]
+
+
+def test_build_s3_artifact_uri_sanitizes_artifact_path() -> None:
+    assert (
+        _build_s3_artifact_uri(
+            "s3://dlab-checkpoints/dlab",
+            "mnist/rnn run-output",
+            "checkpoints/epoch=2-step=30.ckpt",
+        )
+        == "s3://dlab-checkpoints/dlab/mnist-rnn-run-output/checkpoints/epoch-2-step-30.ckpt"
+    )
+
+
+def test_wandb_artifact_storage_uri_appends_research_track(monkeypatch) -> None:
+    monkeypatch.setenv("CHECKPOINT_BUCKET_URI", "s3://wandb")
+    cfg = OmegaConf.create(
+        {
+            "wandb": {"artifact_storage_uri": None},
+            "run": {"project": "cifar10_beat_baseline"},
+        }
+    )
+
+    assert _wandb_artifact_storage_uri(cfg) == "s3://wandb/cifar10_beat_baseline"
+
+
+def test_wandb_artifact_storage_uri_substitutes_research_track_placeholder(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CHECKPOINT_BUCKET_URI", "s3://wandb/{research_track_id}")
+    cfg = OmegaConf.create(
+        {
+            "wandb": {"artifact_storage_uri": None},
+            "run": {"project": "sequence_modeling_basics"},
+        }
+    )
+
+    assert _wandb_artifact_storage_uri(cfg) == "s3://wandb/sequence_modeling_basics"
+
+
+def test_log_run_artifact_uses_s3_references_when_storage_uri_is_set(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    logged = {}
+    uploads = []
+
+    class FakeArtifact:
+        def __init__(self, name: str, type: str, metadata: dict) -> None:
+            self.name = name
+            self.type = type
+            self.metadata = metadata
+            self.references = []
+            self.files = []
+
+        def add_reference(self, uri: str, name: str) -> None:
+            self.references.append((uri, name))
+
+        def add_file(self, path: str, name: str) -> None:
+            self.files.append((path, name))
+
+    class FakeWandb:
+        Artifact = FakeArtifact
+
+    class FakeRun:
+        def log_artifact(self, artifact: FakeArtifact, aliases: list[str]) -> None:
+            logged["artifact"] = artifact
+            logged["aliases"] = aliases
+
+    run_dir = tmp_path / "run"
+    checkpoints_dir = run_dir / "checkpoints"
+    metrics_dir = run_dir / "nested"
+    checkpoints_dir.mkdir(parents=True)
+    metrics_dir.mkdir()
+    (run_dir / "config.yaml").write_text("seed: 1337\n", encoding="utf-8")
+    (metrics_dir / "metrics.csv").write_text("epoch,acc\n0,0.1\n", encoding="utf-8")
+    (checkpoints_dir / "last.ckpt").write_text("checkpoint", encoding="utf-8")
+    report_path = tmp_path / "report.md"
+    report_path.write_text("# Report\n", encoding="utf-8")
+
+    monkeypatch.setitem(sys.modules, "wandb", FakeWandb)
+    monkeypatch.setattr(
+        "src.utils.wandb._upload_s3_artifact",
+        lambda source_path, destination_uri: uploads.append((source_path, destination_uri)),
+    )
+    cfg = OmegaConf.create(
+        {
+            "experiment_name": "mnist/rnn run",
+            "wandb": {"artifact_storage_uri": "s3://wandb"},
+            "run": {
+                "project": "sequence_modeling_basics",
+                "stage": "04_sequence_modeling",
+                "study": "003_pixel_rnn_diagnostic_rerun",
+                "group": "mnist-rnn",
+            },
+        }
+    )
+
+    _log_run_artifact(cfg, FakeRun(), run_dir, str(report_path))
+
+    artifact = logged["artifact"]
+    assert artifact.files == []
+    assert artifact.metadata["artifact_storage"] == {
+        "mode": "s3_reference",
+        "base_uri": "s3://wandb/sequence_modeling_basics",
+    }
+    assert sorted(name for _, name in artifact.references) == [
+        "checkpoints/last.ckpt",
+        "config.yaml",
+        "metrics/nested/metrics.csv",
+        "report.md",
+    ]
+    assert [destination for _, destination in uploads] == [
+        "s3://wandb/sequence_modeling_basics/mnist-rnn-run-run/config.yaml",
+        "s3://wandb/sequence_modeling_basics/mnist-rnn-run-run/metrics/nested/metrics.csv",
+        "s3://wandb/sequence_modeling_basics/mnist-rnn-run-run/checkpoints/last.ckpt",
+        "s3://wandb/sequence_modeling_basics/mnist-rnn-run-run/report.md",
     ]
 
 
