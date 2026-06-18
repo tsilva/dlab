@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from omegaconf import OmegaConf
 
 from src.execution.launchers import (
+    LocalLauncher,
     format_override_value,
     get_launcher_name,
     launcher_cli_overrides,
@@ -61,6 +62,29 @@ def test_training_default_cli_overrides_forward_modal_gpu_defaults() -> None:
         "runtime.float32_matmul_precision='medium'",
         "dataset.num_workers=16",
     ]
+
+
+def test_local_launcher_loads_dotenv_before_running_experiment(monkeypatch, tmp_path) -> None:
+    captured = {}
+    (tmp_path / ".env").write_text(
+        "CHECKPOINT_BUCKET_URI=s3://wandb\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CHECKPOINT_BUCKET_URI", raising=False)
+
+    def fake_run_experiment(_cfg):
+        import os
+
+        captured["checkpoint_bucket_uri"] = os.environ.get("CHECKPOINT_BUCKET_URI")
+        return SimpleNamespace(run_dir="outputs/fake", metrics={})
+
+    monkeypatch.setattr("src.execution.launchers.run_experiment", fake_run_experiment)
+
+    result = LocalLauncher().launch_experiment(OmegaConf.create({}))
+
+    assert result.run_dir == "outputs/fake"
+    assert captured["checkpoint_bucket_uri"] == "s3://wandb"
 
 
 def test_modal_launcher_uses_serialized_nested_function(monkeypatch) -> None:

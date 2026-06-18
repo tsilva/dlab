@@ -52,6 +52,67 @@ After any W&B run or sweep, include the most relevant dashboard link(s) in the
 handoff so the user can monitor the correct stage without searching through the
 default W&B workspace.
 
+## W&B Artifact Storage: Cloudflare R2
+
+Use the same R2-backed W&B reference-artifact pattern as `../sandbox-sb3` for
+large run artifacts. `CHECKPOINT_BUCKET_URI` should be a repo-local base URI,
+normally `s3://wandb`. The code expands it with the research-track id from
+`run.project`, so artifacts land under `s3://wandb/<research_track_id>/...`.
+`wandb.artifact_storage_uri`, `WANDB_ARTIFACT_STORAGE_URI`, and
+`CHECKPOINT_BUCKET_URI` also support `{research_track_id}` or
+`<research_track_id>` placeholders.
+
+Expected repo-local `.env` keys for local runs and local SkyPilot launch
+wrappers:
+
+```text
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+AWS_S3_ENDPOINT_URL
+AWS_REGION
+CHECKPOINT_BUCKET_URI
+WANDB_API_KEY
+```
+
+Set `CHECKPOINT_BUCKET_URI=s3://wandb` in local `.env`. `WANDB_ARTIFACT_STORAGE_URI`
+can override `CHECKPOINT_BUCKET_URI` when a run needs a different bucket/base.
+The code loads only `WANDB_*`, `AWS_*`, and
+`CHECKPOINT_BUCKET_URI` from `.env`, and exported shell variables take
+precedence. Without either URI, W&B artifact behavior remains the normal direct
+upload path.
+
+For SkyPilot launches, load `.env` only in the local shell that invokes
+`sky launch`, then pass non-secret config with `--env` and secret values with
+`--secret`. Do not mount `.env`, copy it into the workdir, source it inside the
+task YAML, or bake it into an image/container.
+
+Preferred SkyPilot launch pattern:
+
+```bash
+(
+  set -a
+  . ./.env
+  set +a
+
+  sky launch -c <cluster-name> -y <task.yaml> \
+    --env AWS_REGION \
+    --env AWS_S3_ENDPOINT_URL \
+    --env CHECKPOINT_BUCKET_URI \
+    --secret AWS_ACCESS_KEY_ID \
+    --secret AWS_SECRET_ACCESS_KEY \
+    --secret WANDB_API_KEY
+)
+```
+
+Smoke validation:
+
+- 2026-06-18: `sky_dlab_r2_smoke_2060.yaml` succeeded on SkyPilot
+  `ssh/beast2` / RTX 2060 with W&B run `afkr0egi`.
+- W&B artifact:
+  `https://wandb.ai/tsilva/dlab/artifacts/run-output/mnist-mlp_skypilot-r2-reference_adam-lr0p001-bs64-constant_w256-d2-do0p1_seed1337-run/latest`
+- Confirmed manifest refs and R2 objects under
+  `s3://wandb/skypilot_r2_smoke/mnist-mlp_skypilot-r2-reference_adam-lr0p001-bs64-constant_w256-d2-do0p1_seed1337-run/`.
+
 ## Modal Experiment Execution
 
 When running training experiments on Modal:

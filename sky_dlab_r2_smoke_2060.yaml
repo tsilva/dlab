@@ -1,0 +1,52 @@
+name: dlab-r2-smoke-2060
+
+workdir: .
+
+resources:
+  accelerators: {RTX2060: 1}
+
+setup: |
+  set -euo pipefail
+  if ! command -v uv >/dev/null 2>&1; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  fi
+  export PATH="$HOME/.local/bin:$PATH"
+  export UV_CACHE_DIR="$HOME/.cache/uv-dlab"
+  uv sync --python 3.12 --frozen --no-dev
+
+run: |
+  set -euo pipefail
+  export PATH="$HOME/.local/bin:$PATH"
+  export UV_CACHE_DIR="$HOME/.cache/uv-dlab"
+  : "${WANDB_API_KEY:?WANDB_API_KEY is required}"
+  : "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}"
+  : "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}"
+  : "${AWS_S3_ENDPOINT_URL:?AWS_S3_ENDPOINT_URL is required}"
+  : "${AWS_REGION:?AWS_REGION is required}"
+  : "${CHECKPOINT_BUCKET_URI:?CHECKPOINT_BUCKET_URI is required}"
+
+  echo "gpu:"
+  nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader || true
+  echo "checkpoint_bucket_uri=${CHECKPOINT_BUCKET_URI}"
+  echo "resolved_artifact_base=s3://wandb/skypilot_r2_smoke"
+
+  .venv/bin/python train.py \
+    experiment=mnist_mlp \
+    trainer=default \
+    run.project=skypilot_r2_smoke \
+    run.stage=r2_smoke \
+    run.study=skypilot_r2_reference \
+    "run.tags=[skypilot,rtx2060,r2-smoke]" \
+    wandb.entity=tsilva \
+    wandb.project=dlab \
+    wandb.stable_id=false \
+    wandb.resume=never \
+    wandb.log_artifacts=true \
+    wandb.log_tables=false \
+    litlogger.enabled=false \
+    reports.enabled=true \
+    dataset.num_workers=0 \
+    trainer.max_epochs=1 \
+    trainer.accelerator=gpu \
+    trainer.devices=1 \
+    trainer.log_every_n_steps=1

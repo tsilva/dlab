@@ -7,6 +7,7 @@ from typing import Protocol
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
 from src.execution.experiment import RunResult, run_experiment
+from src.utils.env import load_experiment_env
 
 
 class ExperimentLauncher(Protocol):
@@ -17,6 +18,7 @@ class ExperimentLauncher(Protocol):
 
 class LocalLauncher:
     def launch_experiment(self, cfg: DictConfig) -> RunResult:
+        load_experiment_env()
         return run_experiment(cfg)
 
     def launch_train_command(self, command: Sequence[str]) -> int:
