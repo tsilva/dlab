@@ -1,0 +1,15 @@
+# Credential references only. Store values with `keyenv set ENV_NAME`.
+[keyenv]
+version = 1
+
+[secrets.AWS_ACCESS_KEY_ID]
+account = "dlab/AWS_ACCESS_KEY_ID"
+required = true
+
+[secrets.AWS_SECRET_ACCESS_KEY]
+account = "dlab/AWS_SECRET_ACCESS_KEY"
+required = true
+
+[secrets.WANDB_API_KEY]
+account = "dlab/WANDB_API_KEY"
+required = true
