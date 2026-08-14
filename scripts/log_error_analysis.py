@@ -51,7 +51,9 @@ def main() -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Log a W&B misclassification table for a checkpoint.")
+    parser = argparse.ArgumentParser(
+        description="Log a W&B misclassification table for a checkpoint."
+    )
     parser.add_argument("--config", required=True, help="Resolved training config.")
     parser.add_argument("--checkpoint", required=True, help="Model checkpoint to evaluate.")
     parser.add_argument("--split", choices=["val", "test"], default="val")

@@ -33,8 +33,17 @@ def configure_runtime_warnings() -> None:
     )
 
 
+def _validate_litlogger_disabled(cfg: DictConfig) -> None:
+    if cfg.get("litlogger", {}).get("enabled", False):
+        raise RuntimeError(
+            "LitLogger is disabled because its Lightning SDK dependency constrains urllib3 to "
+            "a vulnerable release. Use CSV or W&B logging instead."
+        )
+
+
 def run_experiment(cfg: DictConfig) -> RunResult:
     configure_runtime_warnings()
+    _validate_litlogger_disabled(cfg)
 
     import pytorch_lightning as pl
     from pytorch_lightning.callbacks import (
@@ -155,20 +164,6 @@ def run_experiment(cfg: DictConfig) -> RunResult:
                 log=cfg.wandb.watch.get("log", "gradients"),
                 log_freq=int(cfg.wandb.watch.get("log_freq", 100)),
             )
-    if cfg.litlogger.enabled:
-        from src.utils.loggers import build_litlogger
-
-        loggers.append(
-            build_litlogger(
-                root_dir=cfg.litlogger.root_dir,
-                name=cfg.experiment_name,
-                teamspace=cfg.litlogger.get("teamspace"),
-                metadata={"dataset": cfg.dataset.name, "model": cfg.model.name, "task": cfg.task},
-                log_model=cfg.litlogger.log_model,
-                save_logs=cfg.litlogger.save_logs,
-            )
-        )
-
     trainer = pl.Trainer(
         max_epochs=int(cfg.trainer.max_epochs),
         accelerator=cfg.trainer.accelerator,
