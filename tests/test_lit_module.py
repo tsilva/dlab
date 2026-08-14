@@ -12,6 +12,7 @@ def _classification_cfg(
     *,
     mixup_enabled: bool = False,
     cutmix_enabled: bool = False,
+    target_type: str = "single_label",
 ) -> OmegaConf:
     return OmegaConf.create(
         {
@@ -19,6 +20,8 @@ def _classification_cfg(
             "optimizer": {"name": "adamw", "lr": 0.001},
             "loss": {
                 "label_smoothing": 0.05,
+                "target_type": target_type,
+                "threshold": 0.5,
                 "mixup": {"enabled": mixup_enabled, "alpha": 0.2, "p": 1.0},
                 "cutmix": {"enabled": cutmix_enabled, "alpha": 1.0, "p": 1.0},
             },
@@ -95,6 +98,22 @@ def test_classification_step_logs_prediction_entropy() -> None:
     assert "train/pred_entropy" in metrics
     assert "train/pred_entropy_normalized" in metrics
     assert "train/pred_max_prob" in metrics
+
+
+def test_multilabel_classification_step_uses_bce_and_threshold_accuracy() -> None:
+    model = nn.Linear(4, 3)
+    module = ResearchLitModule(model, _classification_cfg(target_type="multi_label_binary"))
+    batch = (
+        torch.randn(8, 4),
+        torch.randint(0, 2, (8, 3), dtype=torch.float32),
+    )
+
+    loss, metrics = module._shared_step(batch, "val", batch_idx=0)
+
+    assert loss.ndim == 0
+    assert "val/acc" in metrics
+    assert "val/pred_positive_rate" in metrics
+    assert 0.0 <= float(metrics["val/acc"]) <= 1.0
 
 
 def test_sequence_diagnostics_log_hidden_state_norms_when_enabled() -> None:

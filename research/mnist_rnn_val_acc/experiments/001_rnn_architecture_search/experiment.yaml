@@ -1,0 +1,26 @@
+id: 001_rnn_architecture_search
+project: mnist_rnn_val_acc
+status: planned
+
+run:
+  project: mnist_rnn_val_acc
+  stage: 04_sequence_modeling
+  study: 001_rnn_architecture_search
+
+question: >
+  Which RNN-family MNIST sequence classifier maximizes selected validation accuracy on a dedicated RTX 2060?
+
+hypothesis: >
+  GRU or LSTM row/column-sequence models with moderate width, bidirectionality, and light regularization should outperform the prior vanilla row-RNN baseline while avoiding the 784-step pixel-sequence failure mode.
+
+selection:
+  metric: selected_val_acc
+  mode: max
+  test_used_for_selection: false
+
+controlled_variables: []
+changed_variables: []
+
+artifact_key:
+  naming_source: dlab_generated_run_name
+  wandb_artifact_suffix: -run

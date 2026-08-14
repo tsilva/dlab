@@ -1,0 +1,35 @@
+id: 001_phase1_cnn_like_search
+project: chestmnist_cnn_val_acc
+status: prepared
+
+run:
+  project: chestmnist_cnn_val_acc
+  stage: 01_cnn_like_search
+  studies:
+    - 001_compact_cnn_family_search
+    - 002_resnet18_small_stem_search
+
+objective: >
+  Identify the best first-pass CNN-like ChestMNIST validation-accuracy
+  neighborhoods across compact residual ConvNets and small-stem ResNet-18.
+
+selection:
+  metric: val/acc
+  goal: maximize
+  tie_breakers:
+    - val/loss
+    - val/pred_positive_rate diagnostics
+  test_policy: no test evaluation during phase 1
+
+sweeps:
+  - configs/sweep/chestmnist_cnn_val_acc_phase1.yaml
+  - configs/sweep/chestmnist_resnet18_val_acc_phase1.yaml
+
+hardware:
+  target: ssh/beast2 RTX 2060
+  provider_compute_cost: 0_usd_local_rtx2060
+
+next_gate: >
+  Use scripts/wandb_chestmnist_cnn_val_acc.py to rank W&B runs by full config
+  signature, then confirm the top one or two unique configs on seeds 2024 and
+  9001 before considering a test audit.

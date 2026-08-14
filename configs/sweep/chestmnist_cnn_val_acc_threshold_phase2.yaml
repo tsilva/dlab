@@ -1,0 +1,68 @@
+# @package _global_
+name: chestmnist_cnn_val_acc_threshold_phase2_sweep
+experiment: chestmnist_cnn_val_acc_search
+train_script: train.py
+backend: local
+stop_on_failure: true
+run:
+  project: chestmnist_cnn_val_acc
+  stage: 02_threshold_search
+  study: 003_incumbent_threshold_search
+  question: Can a lower global multilabel threshold recover enough ChestMNIST positives to improve raw validation accuracy over the confirmed threshold-0.5 incumbent?
+  hypothesis: The incumbent model predicts positives very rarely at threshold 0.5, so a modestly lower threshold may increase true positives more than false positives and improve raw val/acc.
+  goal: Beat the confirmed ChestMNIST validation accuracy by tuning only the multilabel decision threshold on the incumbent ConvNet recipe.
+  expected_pattern: A useful threshold should beat the current best single-run val/acc of 0.949735 or the confirmed mean of 0.949607 while raising val/pred_positive_rate above the near-zero incumbent.
+  controlled_variables: [dataset, official_split, model_family, model_capacity, optimizer, scheduler, batch_size, augmentation, checkpoint_selection_metric, test_policy]
+  changed_variables: [loss_threshold]
+  tags: [roadmap, cnn, chestmnist, medmnist, validation-accuracy, phase2, threshold, validation-only, multilabel]
+wandb_sweep:
+  metric:
+    name: val/acc
+    goal: maximize
+parameters:
+  seed:
+    - 1337
+  model:
+    params:
+      channels:
+        - [64, 128, 256]
+      dropout:
+        - 0.0
+      residual:
+        - true
+      convs_per_stage:
+        - 2
+      batch_norm:
+        - true
+  optimizer:
+    lr:
+      - 0.001
+    weight_decay:
+      - 0.00003
+    scheduler:
+      name:
+        - cosine
+  dataset:
+    batch_size:
+      - 512
+    augmentation:
+      enabled:
+        - true
+      random_affine:
+        degrees:
+          - 5
+        translate:
+          - 0.03
+        scale:
+          - [0.95, 1.05]
+        fill:
+          - 0
+  loss:
+    threshold:
+      - 0.25
+      - 0.30
+      - 0.35
+      - 0.40
+      - 0.45
+    name:
+      - bce_with_logits

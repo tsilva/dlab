@@ -1,0 +1,50 @@
+# @package _global_
+name: mnist_rnn_val_acc_phase1_sweep
+experiment: mnist_rnn_val_acc_search
+train_script: train.py
+backend: wandb
+stop_on_failure: true
+run:
+  project: mnist_rnn_val_acc
+  stage: 04_sequence_modeling
+  study: 001_rnn_architecture_search
+  question: Which RNN-family MNIST sequence classifier maximizes selected validation accuracy on a dedicated RTX 2060?
+  hypothesis: Gated row/column sequence models with moderate width, bidirectionality, and light regularization should beat the prior vanilla row-RNN baseline.
+  goal: Broad discrete search over RNN-family sequence classifier choices.
+  expected_pattern: GRU/LSTM rows or columns should dominate vanilla RNN and pixel-sequence variants.
+  controlled_variables: [dataset, validation_split, checkpoint_selection, test_policy, hardware_target]
+  changed_variables: [rnn_type, hidden_dim, num_layers, bidirectionality, pooling, learning_rate, weight_decay, dropout, label_smoothing, augmentation]
+  tags: [mnist, sequence-modeling, rnn, gru, lstm, phase1, validation-search, rtx2060]
+wandb_sweep:
+  method: bayes
+  metric:
+    name: evaluation/selected/val/acc
+    goal: maximize
+  output_dir: outputs/wandb_sweeps
+  create: true
+  start_agent: false
+  agents: 1
+  count: null
+parameters:
+  model:
+    params:
+      rnn_type: [gru, lstm]
+      hidden_dim: [256, 384, 512]
+      num_layers: [1, 2]
+      dropout: [0.0, 0.1, 0.2]
+      bidirectional: [false, true]
+      pooling: [last, mean]
+      sequence_axis: [rows, columns]
+  optimizer:
+    lr: [0.001, 0.003]
+    weight_decay: [0.0, 0.0001, 0.001]
+    scheduler:
+      name: [constant, cosine]
+  loss:
+    label_smoothing: [0.0, 0.01]
+  dataset:
+    batch_size: [256, 512]
+    augmentation:
+      enabled: [false, true]
+  trainer:
+    gradient_clip_val: [0.5, 1.0, 2.0]

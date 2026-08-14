@@ -33,6 +33,9 @@ def _build_run_name(cfg: DictConfig, study: str, base_slug: str, raw_study: str)
         f"lr{_format_number(cfg.optimizer.lr)}",
         f"bs{cfg.dataset.batch_size}",
     ]
+    weight_decay = cfg.optimizer.get("weight_decay")
+    if weight_decay is not None and float(weight_decay) != 0.0:
+        training_parts.append(f"wd{_format_number(weight_decay)}")
     scheduler = cfg.optimizer.get("scheduler")
     if scheduler is not None:
         scheduler_name = _optional_str(scheduler.get("name"))
@@ -66,10 +69,16 @@ def _build_run_name(cfg: DictConfig, study: str, base_slug: str, raw_study: str)
         details_parts.append(f"d{model_params.depth}")
     if "width_factor" in model_params:
         details_parts.append(f"k{model_params.width_factor}")
-    if cfg.loss.get("beta", 1.0) != 1.0:
-        details_parts.append(f"beta{_format_number(cfg.loss.beta)}")
-    if cfg.loss.get("label_smoothing", 0.0) != 0.0:
-        details_parts.append(f"ls{_format_number(cfg.loss.label_smoothing)}")
+    loss_cfg = cfg.get("loss", {})
+    if loss_cfg.get("beta", 1.0) != 1.0:
+        details_parts.append(f"beta{_format_number(loss_cfg.beta)}")
+    if loss_cfg.get("label_smoothing", 0.0) != 0.0:
+        details_parts.append(f"ls{_format_number(loss_cfg.label_smoothing)}")
+    if loss_cfg.get("threshold", 0.5) != 0.5:
+        details_parts.append(f"thr{_format_number(loss_cfg.threshold)}")
+    augmentation = cfg.dataset.get("augmentation", {})
+    if augmentation.get("enabled", False):
+        details_parts.append("aug")
     mixup = cfg.loss.get("mixup", {})
     if mixup.get("enabled", False):
         details_parts.append(f"mixup{_format_number(mixup.get('alpha', 0.2))}")

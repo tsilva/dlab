@@ -18,6 +18,13 @@ class ResearchLitModule(pl.LightningModule):
         self.model = model
         self.cfg = cfg
         self.task = cfg.get("task", getattr(model, "task", "classification"))
+        self.classification_target = str(
+            cfg.get("loss", {}).get(
+                "target_type",
+                cfg.get("dataset", {}).get("target_type", "single_label"),
+            )
+        )
+        self.multilabel_threshold = float(cfg.get("loss", {}).get("threshold", 0.5))
         self.beta = float(cfg.get("loss", {}).get("beta", 1.0))
         self.label_smoothing = float(cfg.get("loss", {}).get("label_smoothing", 0.0))
         mixup_cfg = cfg.get("loss", {}).get("mixup", {})
@@ -127,9 +134,16 @@ class ResearchLitModule(pl.LightningModule):
         x, y = batch
         if self.task == "classification":
             logits, sequence_output = self._classification_logits(x, prefix, batch_idx)
-            loss = F.cross_entropy(logits, y, label_smoothing=self.label_smoothing)
-            preds = torch.argmax(logits, dim=1)
-            acc = (preds == y).float().mean()
+            if self._is_multi_label_classification():
+                y = y.to(dtype=logits.dtype)
+                loss = F.binary_cross_entropy_with_logits(logits, y)
+                probs = logits.sigmoid()
+                preds = probs > self.multilabel_threshold
+                acc = (preds == y.bool()).float().mean()
+            else:
+                loss = F.cross_entropy(logits, y, label_smoothing=self.label_smoothing)
+                preds = torch.argmax(logits, dim=1)
+                acc = (preds == y).float().mean()
             metrics = {
                 f"{prefix}/loss": loss,
                 f"{prefix}/acc": acc,
@@ -179,6 +193,20 @@ class ResearchLitModule(pl.LightningModule):
         logits: torch.Tensor,
         prefix: str,
     ) -> dict[str, torch.Tensor]:
+        if self._is_multi_label_classification():
+            probs = logits.sigmoid()
+            entropy = -(
+                probs * probs.clamp_min(1e-12).log()
+                + (1.0 - probs) * (1.0 - probs).clamp_min(1e-12).log()
+            ).mean()
+            return {
+                f"{prefix}/pred_entropy": entropy,
+                f"{prefix}/pred_entropy_normalized": entropy / math.log(2),
+                f"{prefix}/pred_max_prob": probs.max(dim=-1).values.mean(),
+                f"{prefix}/pred_positive_rate": (
+                    probs > self.multilabel_threshold
+                ).float().mean(),
+            }
         probs = logits.softmax(dim=-1)
         entropy = -(probs * probs.clamp_min(1e-12).log()).sum(dim=-1).mean()
         max_prob = probs.max(dim=-1).values.mean()
@@ -256,11 +284,23 @@ class ResearchLitModule(pl.LightningModule):
         x, y = batch
         mixed_x, y_a, y_b, lam = self._mixup_batch(x, y)
         logits = self.model(mixed_x)
-        loss_a = F.cross_entropy(logits, y_a, label_smoothing=self.label_smoothing)
-        loss_b = F.cross_entropy(logits, y_b, label_smoothing=self.label_smoothing)
-        loss = lam * loss_a + (1.0 - lam) * loss_b
-        preds = torch.argmax(logits, dim=1)
-        acc = lam * (preds == y_a).float().mean() + (1.0 - lam) * (preds == y_b).float().mean()
+        if self._is_multi_label_classification():
+            y_a = y_a.to(dtype=logits.dtype)
+            y_b = y_b.to(dtype=logits.dtype)
+            target = lam * y_a + (1.0 - lam) * y_b
+            loss = F.binary_cross_entropy_with_logits(logits, target)
+            preds = logits.sigmoid() > self.multilabel_threshold
+            acc = lam * (preds == y_a.bool()).float().mean() + (1.0 - lam) * (
+                preds == y_b.bool()
+            ).float().mean()
+        else:
+            loss_a = F.cross_entropy(logits, y_a, label_smoothing=self.label_smoothing)
+            loss_b = F.cross_entropy(logits, y_b, label_smoothing=self.label_smoothing)
+            loss = lam * loss_a + (1.0 - lam) * loss_b
+            preds = torch.argmax(logits, dim=1)
+            acc = lam * (preds == y_a).float().mean() + (1.0 - lam) * (
+                preds == y_b
+            ).float().mean()
         return loss, {
             "train/loss": loss,
             "train/acc": acc,
@@ -285,11 +325,23 @@ class ResearchLitModule(pl.LightningModule):
         x, y = batch
         mixed_x, y_a, y_b, lam = self._cutmix_batch(x, y)
         logits = self.model(mixed_x)
-        loss_a = F.cross_entropy(logits, y_a, label_smoothing=self.label_smoothing)
-        loss_b = F.cross_entropy(logits, y_b, label_smoothing=self.label_smoothing)
-        loss = lam * loss_a + (1.0 - lam) * loss_b
-        preds = torch.argmax(logits, dim=1)
-        acc = lam * (preds == y_a).float().mean() + (1.0 - lam) * (preds == y_b).float().mean()
+        if self._is_multi_label_classification():
+            y_a = y_a.to(dtype=logits.dtype)
+            y_b = y_b.to(dtype=logits.dtype)
+            target = lam * y_a + (1.0 - lam) * y_b
+            loss = F.binary_cross_entropy_with_logits(logits, target)
+            preds = logits.sigmoid() > self.multilabel_threshold
+            acc = lam * (preds == y_a.bool()).float().mean() + (1.0 - lam) * (
+                preds == y_b.bool()
+            ).float().mean()
+        else:
+            loss_a = F.cross_entropy(logits, y_a, label_smoothing=self.label_smoothing)
+            loss_b = F.cross_entropy(logits, y_b, label_smoothing=self.label_smoothing)
+            loss = lam * loss_a + (1.0 - lam) * loss_b
+            preds = torch.argmax(logits, dim=1)
+            acc = lam * (preds == y_a).float().mean() + (1.0 - lam) * (
+                preds == y_b
+            ).float().mean()
         return loss, {
             "train/loss": loss,
             "train/acc": acc,
@@ -339,6 +391,9 @@ class ResearchLitModule(pl.LightningModule):
             optimizer = optimizer[0]
         lr = optimizer.param_groups[0]["lr"]
         self.log("train/lr", lr, on_step=True, prog_bar=False)
+
+    def _is_multi_label_classification(self) -> bool:
+        return self.classification_target == "multi_label_binary"
 
     def _log_gradient_clip(self, raw_norm: torch.Tensor) -> None:
         threshold = float(self.cfg.trainer.get("gradient_clip_val", 0.0) or 0.0)

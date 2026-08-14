@@ -70,3 +70,86 @@ def test_run_name_collapses_redundant_dataset_model_and_study_prefixes() -> None
         "do0p2-cps6-ch64x128x256-ls0p02-ema_depth-sweep_seed1"
     )
     assert identity.group == "fashion-mnist-cnn-gradient-flow"
+
+
+def test_run_name_includes_weight_decay_and_enabled_augmentation() -> None:
+    cfg = OmegaConf.create(
+        {
+            "dataset": {
+                "name": "chestmnist",
+                "batch_size": 512,
+                "augmentation": {"enabled": True},
+            },
+            "model": {
+                "name": "cnn",
+                "params": {
+                    "channels": [64, 128, 256],
+                    "dropout": 0.1,
+                    "convs_per_stage": 2,
+                    "batch_norm": True,
+                    "residual": True,
+                },
+            },
+            "optimizer": {
+                "name": "adamw",
+                "lr": 0.001,
+                "weight_decay": 0.00003,
+                "scheduler": {"name": "cosine"},
+            },
+            "loss": {"beta": 1.0},
+            "seed": 1337,
+            "task": "classification",
+            "run": {
+                "study": "001_compact_cnn_family_search",
+                "group": None,
+                "sweep_name": "chestmnist_cnn_val_acc_phase1_sweep",
+                "sweep_index": None,
+            },
+        }
+    )
+
+    identity = resolve_run_identity(cfg)
+
+    assert "wd3em05" in identity.name
+    assert "_do0p1-bn-res-cps2-ch64x128x256-aug_" in identity.name
+
+
+def test_run_name_includes_non_default_multilabel_threshold() -> None:
+    cfg = OmegaConf.create(
+        {
+            "dataset": {
+                "name": "chestmnist",
+                "batch_size": 512,
+                "augmentation": {"enabled": True},
+            },
+            "model": {
+                "name": "cnn",
+                "params": {
+                    "channels": [64, 128, 256],
+                    "dropout": 0.0,
+                    "convs_per_stage": 2,
+                    "batch_norm": True,
+                    "residual": True,
+                },
+            },
+            "optimizer": {
+                "name": "adamw",
+                "lr": 0.001,
+                "weight_decay": 0.00003,
+                "scheduler": {"name": "cosine"},
+            },
+            "loss": {"beta": 1.0, "threshold": 0.3},
+            "seed": 1337,
+            "task": "classification",
+            "run": {
+                "study": "003_incumbent_threshold_search",
+                "group": None,
+                "sweep_name": "chestmnist_cnn_val_acc_threshold_phase2_sweep",
+                "sweep_index": None,
+            },
+        }
+    )
+
+    identity = resolve_run_identity(cfg)
+
+    assert "_do0-bn-res-cps2-ch64x128x256-thr0p3-aug_" in identity.name

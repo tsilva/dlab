@@ -1,0 +1,46 @@
+id: 001_wide_cnn_val_acc_selection
+project: fashion_mnist_cnn_val_acc
+status: planned
+
+run:
+  project: fashion_mnist_cnn_val_acc
+  stage: 03_dataset_difficulty
+  study: 001_wide_cnn_val_acc_selection
+
+question: >
+  Which of the top two wide Fashion-MNIST CNN regularization variants wins when
+  checkpoints are selected by validation accuracy?
+
+hypothesis: >
+  Dropout 0.2 with weight decay 0.00003 should keep the best single-seed peak,
+  while dropout 0.1 may keep a slightly better mean validation accuracy.
+
+selection:
+  metric: val/acc
+  mode: max
+  tie_breaker: val/loss
+  test_used_for_selection: false
+
+controlled_variables:
+  - dataset
+  - validation_split_policy
+  - model_family
+  - channels
+  - convs_per_stage
+  - optimizer
+  - scheduler
+  - batch_size
+  - augmentation
+  - label_smoothing
+  - weight_averaging
+  - checkpoint_selection_metric
+  - test_policy
+
+changed_variables:
+  - seed
+  - model.params.dropout
+  - optimizer.weight_decay
+
+artifact_key:
+  naming_source: dlab_generated_run_name
+  wandb_artifact_suffix: -run

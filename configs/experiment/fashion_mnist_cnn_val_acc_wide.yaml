@@ -1,0 +1,72 @@
+# @package _global_
+defaults:
+  - override /dataset: fashion_mnist
+  - override /model: cnn
+  - override /optimizer: adam
+
+task: classification
+seed: 1
+
+run:
+  project: fashion_mnist_cnn_val_acc
+  stage: 03_dataset_difficulty
+  study: 001_wide_cnn_val_acc_selection
+  goal: Maximize Fashion-MNIST validation accuracy for CNN-like models without using the held-out test set.
+  question: Does selecting the proven wide CNN family by validation accuracy improve over the validation-loss-selected incumbent?
+  hypothesis: The wide three-stage CNN should stay strongest, and selecting checkpoints by val/acc may recover a slightly higher accuracy checkpoint than val/loss selection.
+  expected_pattern: Wide CNN variants with light regularization should remain near or above 95% validation accuracy across seeds.
+  controlled_variables: [dataset, validation_split_policy, model_family, optimizer, scheduler, batch_size, augmentation, weight_averaging, test_policy]
+  changed_variables: [checkpoint_selection_metric, seed, dropout, weight_decay]
+  tags: [roadmap, cnn, fashion-mnist, validation-accuracy, confirmation, validation-only, rtx2060]
+
+dataset:
+  batch_size: 512
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: 0.05
+      scale: [0.9, 1.1]
+      fill: 0
+
+model:
+  params:
+    channels: [64, 128, 256]
+    dropout: 0.2
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.00003
+  scheduler:
+    name: cosine
+
+loss:
+  label_smoothing: 0.02
+
+weight_averaging:
+  name: ema
+
+trainer:
+  max_epochs: 100
+
+checkpoint:
+  monitor: val/acc
+  mode: max
+  save_top_k: 1
+
+early_stopping:
+  enabled: true
+  monitor: val/acc
+  mode: max
+  patience: 8
+  min_delta: 0.0002
+  verbose: true
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

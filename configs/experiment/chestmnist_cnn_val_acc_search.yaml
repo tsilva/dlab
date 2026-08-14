@@ -1,0 +1,67 @@
+# @package _global_
+defaults:
+  - override /dataset: chestmnist
+  - override /model: cnn
+  - override /optimizer: adamw
+
+task: classification
+seed: 1337
+
+run:
+  project: chestmnist_cnn_val_acc
+  stage: 01_cnn_like_search
+  study: 001_compact_cnn_family_search
+  goal: Maximize ChestMNIST validation accuracy for CNN-like classifiers without using the held-out test set.
+  question: Which compact CNN-like architecture and regularization recipe gives the best ChestMNIST validation accuracy under the MedMNIST multi-label metric?
+  hypothesis: Wider residual CNNs and small-stem ResNet-style models should improve validation accuracy over a shallow ConvNet, but excessive regularization may underfit rare labels.
+  expected_pattern: Strong candidates should exceed the published 28px ResNet-18 ACC baseline of roughly 0.947 on validation-like data while avoiding degenerate all-negative prediction rates.
+  controlled_variables: [dataset, official_split, image_size, optimizer_family, batch_size, checkpoint_selection_metric, test_policy]
+  changed_variables: [model_family, channels, residual_connections, dropout, learning_rate, weight_decay, augmentation, scheduler]
+  tags: [roadmap, cnn, chestmnist, medmnist, validation-accuracy, validation-only, multilabel]
+
+dataset:
+  batch_size: 512
+
+model:
+  params:
+    channels: [64, 128, 256]
+    dropout: 0.1
+    convs_per_stage: 2
+    batch_norm: true
+    residual: true
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler:
+    name: cosine
+
+loss:
+  name: bce_with_logits
+  threshold: 0.5
+
+trainer:
+  max_epochs: 30
+  gradient_clip_val: 1.0
+
+checkpoint:
+  monitor: val/acc
+  mode: max
+  save_top_k: 1
+
+early_stopping:
+  enabled: true
+  monitor: val/acc
+  mode: max
+  patience: 5
+  min_delta: 0.0002
+  verbose: true
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

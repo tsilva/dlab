@@ -66,6 +66,8 @@ def run_experiment(cfg: DictConfig) -> RunResult:
         cfg.run_target = OmegaConf.create(run_target)
 
     datamodule = build_datamodule(cfg.dataset, seed=int(cfg.seed))
+    with open_dict(cfg):
+        cfg.dataset.target_type = datamodule.info.get("target_type", "single_label")
     model = build_model(cfg.model, datamodule.info)
     lit_module = ResearchLitModule(model, cfg)
     model_summary = parameter_count(model)

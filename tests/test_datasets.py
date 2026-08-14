@@ -3,7 +3,16 @@ from __future__ import annotations
 import pytest
 from torchvision import transforms
 
-from src.datasets.vision import VisionDataModule
+from src.datasets.vision import DATASETS, VisionDataModule
+
+
+def test_chestmnist_declares_multilabel_official_split_metadata() -> None:
+    spec = DATASETS["chestmnist"]
+
+    assert spec.input_shape == (1, 28, 28)
+    assert spec.num_classes == 14
+    assert spec.target_type == "multi_label_binary"
+    assert spec.official_splits is True
 
 
 def test_training_transform_supports_crop_and_flip_without_affine() -> None:

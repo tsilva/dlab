@@ -1,0 +1,3 @@
+run_id,seed,variant,val_acc,val_loss,state,notes
+qwfq2ihy,3,"dropout=0.2 wd=0.00003",0.953500,0.258240,finished,legacy incumbent best single run
+uh2f71o3,3,"dropout=0.1 wd=0.00003",0.953000,0.261124,finished,legacy incumbent second best single run

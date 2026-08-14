@@ -14,13 +14,19 @@ The repo currently covers MNIST, Fashion-MNIST, and CIFAR-10 with classifiers an
 git clone git@github.com:tsilva/dlab.git
 cd dlab
 uv sync
+keyenv doctor
 ```
 
 Run a debug training pass:
 
 ```bash
-uv run python train.py experiment=mnist_mlp trainer=debug dataset.num_workers=0
+keyenv run -- uv run python train.py experiment=mnist_mlp trainer=debug dataset.num_workers=0
 ```
+
+Private local credentials declared in `.keyenv.toml` live in macOS Keychain.
+Launch any command that needs W&B or R2 credentials through `keyenv run -- ...`;
+Python continues to access them through `os.environ`. Non-secret runtime settings
+may remain in `.env`.
 
 ## Commands
 

@@ -1,0 +1,53 @@
+name: dlab-chestmnist-threshold-tuning-2060
+
+workdir: .
+
+resources:
+  accelerators: {RTX2060: 1}
+
+setup: |
+  set -euo pipefail
+  if ! command -v uv >/dev/null 2>&1; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  fi
+  export PATH="$HOME/.local/bin:$PATH"
+  export UV_CACHE_DIR="$HOME/.cache/uv-dlab"
+  export MPLCONFIGDIR="$HOME/.cache/matplotlib-dlab"
+  mkdir -p "$MPLCONFIGDIR" datasets
+  uv sync --python 3.12 --frozen --no-dev
+
+run: |
+  set -euo pipefail
+  export PATH="$HOME/.local/bin:$PATH"
+  export UV_CACHE_DIR="$HOME/.cache/uv-dlab"
+  export MPLCONFIGDIR="$HOME/.cache/matplotlib-dlab"
+  mkdir -p "$MPLCONFIGDIR" outputs/chestmnist_cnn_val_acc/threshold_tuning
+
+  echo "provider_compute_cost=0_usd_local_rtx2060"
+  echo "electricity_cost=not_metered"
+  nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader || true
+
+  .venv/bin/python scripts/chestmnist_tune_thresholds.py \
+    --device cuda \
+    --output-dir outputs/chestmnist_cnn_val_acc/threshold_tuning \
+    --candidate dropout0_seed1337 \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd3em05-cosine_do0-bn-res-cps2-ch64x128x256-aug_val-acc-phase1-sweep_seed1337/config.yaml \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd3em05-cosine_do0-bn-res-cps2-ch64x128x256-aug_val-acc-phase1-sweep_seed1337/checkpoints/009.ckpt \
+    --candidate dropout0_seed2024 \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd3em05-cosine_do0-bn-res-cps2-ch64x128x256-aug_val-acc-confirm-top-i000_seed2024/config.yaml \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd3em05-cosine_do0-bn-res-cps2-ch64x128x256-aug_val-acc-confirm-top-i000_seed2024/checkpoints/005.ckpt \
+    --candidate dropout0_seed9001 \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd3em05-cosine_do0-bn-res-cps2-ch64x128x256-aug_val-acc-confirm-top-i000_seed9001/config.yaml \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd3em05-cosine_do0-bn-res-cps2-ch64x128x256-aug_val-acc-confirm-top-i000_seed9001/checkpoints/001.ckpt \
+    --candidate dropout0p1_seed1337 \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd0p0001-cosine_do0p1-bn-res-cps2-ch64x128x256-aug_val-acc-phase1-sweep_seed1337/config.yaml \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd0p0001-cosine_do0p1-bn-res-cps2-ch64x128x256-aug_val-acc-phase1-sweep_seed1337/checkpoints/005.ckpt \
+    --candidate dropout0p1_seed2024 \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd0p0001-cosine_do0p1-bn-res-cps2-ch64x128x256-aug_val-acc-confirm-top-i001_seed2024/config.yaml \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd0p0001-cosine_do0p1-bn-res-cps2-ch64x128x256-aug_val-acc-confirm-top-i001_seed2024/checkpoints/005.ckpt \
+    --candidate dropout0p1_seed9001 \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd0p0001-cosine_do0p1-bn-res-cps2-ch64x128x256-aug_val-acc-confirm-top-i001_seed9001/config.yaml \
+      /home/sky/sky_workdir/outputs/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd0p0001-cosine_do0p1-bn-res-cps2-ch64x128x256-aug_val-acc-confirm-top-i001_seed9001/checkpoints/003.ckpt
+
+  echo "--- threshold_tuning.csv ---"
+  cat outputs/chestmnist_cnn_val_acc/threshold_tuning/threshold_tuning.csv

@@ -1,0 +1,48 @@
+# @package _global_
+name: chestmnist_resnet18_val_acc_phase1_sweep
+experiment: chestmnist_resnet18_val_acc_search
+train_script: train.py
+backend: local
+stop_on_failure: true
+run:
+  project: chestmnist_cnn_val_acc
+  stage: 01_cnn_like_search
+  study: 002_resnet18_small_stem_search
+  question: Which small-stem ResNet-18 optimization recipe should challenge the compact ConvNet ChestMNIST winner?
+  hypothesis: ResNet-18 should prefer a lower learning rate than compact ConvNets and may benefit from light affine augmentation.
+  goal: Identify whether ResNet-18 deserves seed confirmation for ChestMNIST validation accuracy.
+  expected_pattern: Competitive runs should approach or exceed the compact ConvNet phase-1 winner without collapsing to all-negative predictions.
+  controlled_variables: [dataset, official_split, model_family, stem, loss, threshold, checkpoint_selection_metric, test_policy]
+  changed_variables: [learning_rate, weight_decay, augmentation]
+  tags: [roadmap, cnn, resnet18, chestmnist, medmnist, validation-accuracy, phase1, validation-only, multilabel]
+wandb_sweep:
+  metric:
+    name: val/acc
+    goal: maximize
+parameters:
+  seed:
+    - 1337
+  optimizer:
+    lr:
+      - 0.0005
+      - 0.0003
+    weight_decay:
+      - 0.0001
+      - 0.0003
+    scheduler:
+      name:
+        - cosine
+  dataset:
+    augmentation:
+      enabled:
+        - false
+        - true
+      random_affine:
+        degrees:
+          - 5
+        translate:
+          - 0.03
+        scale:
+          - [0.95, 1.05]
+        fill:
+          - 0
