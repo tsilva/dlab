@@ -10,7 +10,6 @@ from torch.nn import functional as F
 from torchvision.transforms import InterpolationMode, TrivialAugmentWide
 from torchvision.transforms import functional as TF
 
-
 TransformSpec = str | Mapping[str, Any]
 
 

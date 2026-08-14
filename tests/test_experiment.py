@@ -3,22 +3,31 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
+import pytest
 import torch
 from omegaconf import OmegaConf
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from src.execution.experiment import (
-    _ModalVolumeCommitCallback,
-    _ResumeRestoreEventCallback,
     _early_stopping_metrics,
+    _ModalVolumeCommitCallback,
     _resolve_resume_checkpoint,
     _resume_metrics,
+    _ResumeRestoreEventCallback,
     _run_selection_validation,
     _run_tta_evaluation_if_enabled,
+    _validate_litlogger_disabled,
     _wandb_run_id,
 )
 from src.trainers import ResearchLitModule
+
+
+def test_litlogger_is_rejected_before_loading_its_vulnerable_http_stack() -> None:
+    cfg = OmegaConf.create({"litlogger": {"enabled": True}})
+
+    with pytest.raises(RuntimeError, match="LitLogger is disabled"):
+        _validate_litlogger_disabled(cfg)
 
 
 def test_selection_validation_reloads_best_checkpoint_and_promotes_val_metrics() -> None:
@@ -107,7 +116,9 @@ def test_tta_evaluation_loads_selected_checkpoint_and_logs_metrics(tmp_path) -> 
     trainer = SimpleNamespace(
         checkpoint_callback=SimpleNamespace(best_model_path=str(checkpoint_path)),
         global_step=123,
-        loggers=[SimpleNamespace(log_metrics=lambda metrics, step=None: logged.append((metrics, step)))],
+        loggers=[
+            SimpleNamespace(log_metrics=lambda metrics, step=None: logged.append((metrics, step)))
+        ],
     )
 
     metrics = _run_tta_evaluation_if_enabled(cfg, trainer, lit_module, datamodule)

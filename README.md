@@ -13,7 +13,7 @@ The repo currently covers MNIST, Fashion-MNIST, and CIFAR-10 with classifiers an
 ```bash
 git clone git@github.com:tsilva/dlab.git
 cd dlab
-uv sync
+uv sync --locked --no-config --exclude-newer '7 days' --extra dev
 keyenv doctor
 ```
 
@@ -33,7 +33,6 @@ may remain in `.env`.
 ```bash
 uv run python train.py experiment=mnist_mlp                         # run a named experiment
 uv run python train.py experiment=mnist_mlp optimizer.lr=1e-4       # override Hydra config values
-uv run python train.py experiment=mnist_mlp litlogger.enabled=true  # enable LitLogger for a run
 uv run python train.py experiment=mnist_mlp launcher=modal          # submit one run to Modal
 uv run python train.py experiment=mnist_mlp launcher=modal_gpu      # Modal GPU defaults
 uv run python train.py experiment=mnist_mlp launcher=runpod_flash   # submit one run to RunPod Flash
@@ -51,6 +50,9 @@ uv run --with wandb-workspaces python scripts/setup_wandb_workspaces.py --entity
 uv run jupyter lab                                                  # open analysis notebooks
 uv run ruff check .                                                 # lint the project
 ```
+
+LitLogger is disabled because its Lightning SDK dependency still constrains urllib3 to a
+vulnerable release. Use the always-on CSV logger or enable W&B logging instead.
 
 Run names are generated automatically from dataset, model, study, optimizer, learning rate, batch size, key model parameters, sweep metadata, and seed.
 
