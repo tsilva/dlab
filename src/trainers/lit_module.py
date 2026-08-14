@@ -531,7 +531,6 @@ class ResearchLitModule(pl.LightningModule):
     def _wandb_log_images(self, key: str, images: torch.Tensor) -> None:
         try:
             import torchvision
-
             import wandb
         except ImportError:
             return
