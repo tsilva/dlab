@@ -180,6 +180,36 @@ def _log_example_table(
 
     if cfg.task == "classification":
         logits = output
+        if cfg.dataset.get("target_type") == "multi_label_binary":
+            threshold = float(cfg.loss.get("threshold", 0.5))
+            probs = torch.sigmoid(logits).cpu()
+            preds = (probs >= threshold).to(torch.int64)
+            labels = y.cpu().to(torch.int64)
+            class_names = _class_names(datamodule, cfg.dataset.name)
+            table = wandb.Table(
+                columns=[
+                    "index",
+                    "image",
+                    "labels",
+                    "predictions",
+                    "positive_labels",
+                    "predicted_positive_labels",
+                    "mean_probability",
+                ]
+            )
+            for index, image in enumerate(_image_batch_for_wandb(cfg, x).cpu()):
+                table.add_data(
+                    index,
+                    wandb.Image(image),
+                    labels[index].tolist(),
+                    preds[index].tolist(),
+                    _positive_label_names(labels[index], class_names),
+                    _positive_label_names(preds[index], class_names),
+                    float(probs[index].mean().item()),
+                )
+            wandb_run.log({"examples/predictions": table})
+            return
+
         probs = torch.softmax(logits, dim=1)
         preds = torch.argmax(probs, dim=1).cpu()
         conf = probs.max(dim=1).values.cpu()
@@ -383,6 +413,11 @@ def _class_name(class_names: list[str], index: int) -> str:
     if 0 <= index < len(class_names):
         return class_names[index]
     return str(index)
+
+
+def _positive_label_names(labels: torch.Tensor, class_names: list[str]) -> list[str]:
+    positive_indices = labels.nonzero(as_tuple=False).flatten().tolist()
+    return [_class_name(class_names, int(index)) for index in positive_indices]
 
 
 def _log_run_artifact(

@@ -1,0 +1,80 @@
+name: dlab-chestmnist-cnn-val-acc-scalar-threshold-phase4-2060
+
+workdir: .
+
+resources:
+  accelerators: {RTX2060: 1}
+
+setup: |
+  set -euo pipefail
+  if ! command -v uv >/dev/null 2>&1; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  fi
+  export PATH="$HOME/.local/bin:$PATH"
+  export UV_CACHE_DIR="$HOME/.cache/uv-dlab"
+  export MPLCONFIGDIR="$HOME/.cache/matplotlib-dlab"
+  export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+  mkdir -p "$MPLCONFIGDIR" datasets
+  uv sync --python 3.12 --frozen --no-dev
+
+run: |
+  set -euo pipefail
+  export PATH="$HOME/.local/bin:$PATH"
+  export UV_CACHE_DIR="$HOME/.cache/uv-dlab"
+  export MPLCONFIGDIR="$HOME/.cache/matplotlib-dlab"
+  export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+  mkdir -p "$MPLCONFIGDIR" datasets
+  : "${WANDB_API_KEY:?WANDB_API_KEY is required}"
+  : "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}"
+  : "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}"
+  : "${AWS_S3_ENDPOINT_URL:?AWS_S3_ENDPOINT_URL is required}"
+  : "${AWS_REGION:?AWS_REGION is required}"
+  : "${CHECKPOINT_BUCKET_URI:?CHECKPOINT_BUCKET_URI is required}"
+
+  echo "provider_compute_cost=0_usd_local_rtx2060"
+  echo "electricity_cost=not_metered"
+  nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader || true
+
+  .venv/bin/python train.py \
+    experiment=chestmnist_cnn_val_acc_search \
+    evaluation.only=true \
+    evaluation.checkpoint.artifact=tsilva/dlab/chestmnist-cnn_001-compact-cnn-family-search_adamw-lr0p001-bs512-wd3em05-cosine_do0-bn-res-cps2-ch64x128x256-aug_val--0d8626ee20:v0 \
+    evaluation.checkpoint.file=checkpoints/005.ckpt \
+    evaluation.test.enabled=false \
+    seed=2024 \
+    run.stage=04_scalar_threshold_tuning \
+    run.study=005_exact_scalar_threshold_tuning \
+    run.sweep_name=chestmnist_cnn_val_acc_scalar_threshold_phase4 \
+    "run.changed_variables=[loss_threshold]" \
+    "run.controlled_variables=[dataset,official_split,model_family,model_capacity,optimizer,scheduler,batch_size,augmentation,checkpoint_selection_metric,test_policy,checkpoint]" \
+    "run.tags=[roadmap,cnn,chestmnist,medmnist,validation-accuracy,phase4,threshold,validation-only,multilabel]" \
+    model.params.channels=[64,128,256] \
+    model.params.convs_per_stage=2 \
+    model.params.batch_norm=true \
+    model.params.residual=true \
+    model.params.dropout=0.0 \
+    optimizer.lr=0.001 \
+    optimizer.weight_decay=0.00003 \
+    optimizer.scheduler.name=cosine \
+    loss.name=bce_with_logits \
+    loss.threshold=0.5358771681785583 \
+    dataset.batch_size=512 \
+    dataset.augmentation.enabled=true \
+    dataset.augmentation.random_affine.degrees=5 \
+    dataset.augmentation.random_affine.translate=0.03 \
+    dataset.augmentation.random_affine.scale=[0.95,1.05] \
+    dataset.augmentation.random_affine.fill=0 \
+    checkpoint.monitor=val/acc \
+    checkpoint.mode=max \
+    wandb.enabled=true \
+    wandb.entity=tsilva \
+    wandb.project=dlab \
+    wandb.stable_id=false \
+    wandb.resume=never
+
+  .venv/bin/python scripts/wandb_chestmnist_cnn_val_acc.py \
+    --entity tsilva \
+    --project dlab \
+    --run-project chestmnist_cnn_val_acc \
+    --top-k 20 \
+    --output-dir outputs/chestmnist_cnn_val_acc/final

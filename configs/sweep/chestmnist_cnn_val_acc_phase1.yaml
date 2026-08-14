@@ -1,0 +1,59 @@
+# @package _global_
+name: chestmnist_cnn_val_acc_phase1_sweep
+experiment: chestmnist_cnn_val_acc_search
+train_script: train.py
+backend: local
+stop_on_failure: true
+run:
+  project: chestmnist_cnn_val_acc
+  stage: 01_cnn_like_search
+  study: 001_compact_cnn_family_search
+  question: Which compact ConvNet capacity and regularization recipe should be confirmed for ChestMNIST validation accuracy?
+  hypothesis: A wider residual ConvNet should beat the plain shallow recipe on this multi-label X-ray task, but too little regularization may overfit frequent negative labels.
+  goal: Identify the top unique ConvNet ChestMNIST validation-accuracy configurations for seed confirmation.
+  expected_pattern: Top candidates should combine high val/acc with a non-degenerate validation positive prediction rate.
+  controlled_variables: [dataset, official_split, batch_size, loss, threshold, checkpoint_selection_metric, test_policy]
+  changed_variables: [model_family, model_capacity, residual_connections, dropout, learning_rate, weight_decay, augmentation]
+  tags: [roadmap, cnn, chestmnist, medmnist, validation-accuracy, phase1, validation-only, multilabel]
+wandb_sweep:
+  metric:
+    name: val/acc
+    goal: maximize
+parameters:
+  seed:
+    - 1337
+  model:
+    params:
+      channels:
+        - [64, 128, 256]
+        - [96, 192, 384]
+      dropout:
+        - 0.0
+        - 0.1
+      residual:
+        - true
+      convs_per_stage:
+        - 2
+  optimizer:
+    lr:
+      - 0.001
+    weight_decay:
+      - 0.00003
+      - 0.0001
+    scheduler:
+      name:
+        - cosine
+  dataset:
+    augmentation:
+      enabled:
+        - false
+        - true
+      random_affine:
+        degrees:
+          - 5
+        translate:
+          - 0.03
+        scale:
+          - [0.95, 1.05]
+        fill:
+          - 0

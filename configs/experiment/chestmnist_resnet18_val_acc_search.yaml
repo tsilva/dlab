@@ -1,0 +1,69 @@
+# @package _global_
+defaults:
+  - override /dataset: chestmnist
+  - override /model: resnet18
+  - override /optimizer: adamw
+
+task: classification
+seed: 1337
+
+run:
+  project: chestmnist_cnn_val_acc
+  stage: 01_cnn_like_search
+  study: 002_resnet18_small_stem_search
+  goal: Maximize ChestMNIST validation accuracy for a small-stem ResNet-18 without using the held-out test set.
+  question: Does a ResNet-18 with a 28px-compatible stem outperform the compact ConvNet family on ChestMNIST validation accuracy?
+  hypothesis: The residual hierarchy may improve rare-label signal extraction, but the model may need lower learning rate or stronger weight decay than compact ConvNets.
+  expected_pattern: A useful ResNet candidate should beat the compact ConvNet phase-1 winner or expose underfitting through lower val/acc and low predicted positive rate.
+  controlled_variables: [dataset, official_split, model_family, image_size, loss, threshold, checkpoint_selection_metric, test_policy]
+  changed_variables: [learning_rate, weight_decay, dropout_proxy, augmentation]
+  tags: [roadmap, cnn, resnet18, chestmnist, medmnist, validation-accuracy, validation-only, multilabel]
+
+dataset:
+  batch_size: 512
+
+model:
+  params:
+    model_name: resnet18
+    pretrained: false
+    stem:
+      kernel_size: 3
+      stride: 1
+      padding: 1
+      max_pool: false
+
+optimizer:
+  lr: 0.0005
+  weight_decay: 0.0001
+  scheduler:
+    name: cosine
+
+loss:
+  name: bce_with_logits
+  threshold: 0.5
+
+trainer:
+  max_epochs: 30
+  gradient_clip_val: 1.0
+
+checkpoint:
+  monitor: val/acc
+  mode: max
+  save_top_k: 1
+
+early_stopping:
+  enabled: true
+  monitor: val/acc
+  mode: max
+  patience: 5
+  min_delta: 0.0002
+  verbose: true
+
+evaluation:
+  test:
+    enabled: false
+  error_analysis:
+    enabled: false
+
+wandb:
+  table_split: val

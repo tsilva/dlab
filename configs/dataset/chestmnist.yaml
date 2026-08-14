@@ -1,0 +1,15 @@
+name: chestmnist
+data_dir: datasets
+batch_size: 512
+num_workers: 4
+val_split: 0.0
+normalize: true
+download: true
+pin_memory: null
+augmentation:
+  enabled: false
+  random_affine:
+    degrees: 0
+    translate: null
+    scale: null
+    fill: 0

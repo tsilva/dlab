@@ -1,0 +1,34 @@
+# @package _global_
+name: fashion_mnist_cnn_val_acc_confirm_3seed_sweep
+experiment: fashion_mnist_cnn_val_acc_wide
+train_script: train.py
+backend: local
+stop_on_failure: true
+run:
+  project: fashion_mnist_cnn_val_acc
+  stage: 03_dataset_difficulty
+  study: 001_wide_cnn_val_acc_selection
+  question: Which of the two best wide Fashion-MNIST CNN regularization variants wins when checkpoints are selected by val/acc?
+  hypothesis: Dropout 0.2 with weight decay 0.00003 should keep the best mean validation accuracy, while dropout 0.1 may produce a higher single-seed peak.
+  goal: Confirm the current best CNN-like Fashion-MNIST candidate under the target validation-accuracy selection policy.
+  expected_pattern: The winner should beat or match the previous val-loss-selected mean around 0.9514 and avoid chance-level or overfit diagnostics.
+  controlled_variables: [dataset, model_family, channels, optimizer, scheduler, batch_size, augmentation, label_smoothing, weight_averaging, checkpoint_selection_metric, test_policy]
+  changed_variables: [seed, model.params.dropout, optimizer.weight_decay]
+  tags: [roadmap, cnn, fashion-mnist, validation-accuracy, confirmation, validation-only, rtx2060]
+wandb_sweep:
+  metric:
+    name: val/acc
+    goal: maximize
+parameters:
+  seed:
+    - 1
+    - 2
+    - 3
+  model:
+    params:
+      dropout:
+        - 0.1
+        - 0.2
+  optimizer:
+    weight_decay:
+      - 0.00003

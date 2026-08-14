@@ -1,0 +1,97 @@
+# @package _global_
+
+# Validation-only MNIST RNN search. This config is intentionally stronger than
+# the historical vanilla RNN baseline and is meant to be overridden by sweeps.
+defaults:
+  - override /dataset: mnist
+  - override /model: rnn
+  - override /optimizer: adamw
+
+task: classification
+seed: 1337
+
+run:
+  project: mnist_rnn_val_acc
+  stage: 04_sequence_modeling
+  study: 001_rnn_architecture_search
+  question: Which RNN-family MNIST sequence classifier maximizes selected validation accuracy on a dedicated RTX 2060?
+  hypothesis: GRU or LSTM row/column-sequence models with moderate width, bidirectionality, and light regularization should outperform the prior vanilla row-RNN baseline while avoiding the 784-step pixel-sequence failure mode.
+  goal: Maximize selected MNIST validation accuracy without using test metrics for model selection.
+  expected_pattern: Gated row or column sequence models should beat the prior 0.9507 vanilla row-RNN validation accuracy; pixel-sequence vanilla RNN variants should remain poor.
+  controlled_variables: [dataset, validation_split, checkpoint_selection, test_policy, hardware_target]
+  changed_variables: [rnn_type, hidden_dim, num_layers, bidirectionality, pooling, learning_rate, weight_decay, dropout, label_smoothing, augmentation]
+  tags: [mnist, sequence-modeling, rnn, gru, lstm, validation-search, rtx2060]
+
+dataset:
+  batch_size: 512
+  num_workers: 6
+  augmentation:
+    enabled: true
+    random_affine:
+      degrees: 10
+      translate: [0.05, 0.05]
+      scale: [0.95, 1.05]
+      fill: 0
+
+model:
+  params:
+    input_size: null
+    hidden_dim: 256
+    num_layers: 2
+    dropout: 0.1
+    rnn_type: gru
+    bidirectional: true
+    pooling: mean
+    sequence_axis: rows
+
+optimizer:
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler:
+    name: cosine
+    eta_min: 0.00001
+
+loss:
+  label_smoothing: 0.01
+
+trainer:
+  max_epochs: 30
+  accelerator: gpu
+  devices: 1
+  gradient_clip_val: 1.0
+  log_every_n_steps: 20
+
+checkpoint:
+  monitor: val/acc
+  mode: max
+  save_top_k: 1
+
+early_stopping:
+  enabled: true
+  monitor: val/acc
+  mode: max
+  patience: 6
+  min_delta: 0.0002
+
+gradient_flow:
+  enabled: true
+  log_every_n_steps: 100
+
+sequence_diagnostics:
+  enabled: true
+  log_every_n_steps: 100
+  log_validation: true
+
+wandb:
+  entity: tsilva
+  project: dlab
+  stable_id: false
+  resume: never
+  log_artifacts: true
+  log_tables: false
+
+litlogger:
+  enabled: false
+
+reports:
+  enabled: true

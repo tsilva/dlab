@@ -1,25 +1,35 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytorch_lightning as pl
 import torch
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader, Subset, random_split
+from torch.utils.data import DataLoader, Dataset, Subset, random_split
 from torchvision import datasets, transforms
 
 
 @dataclass(frozen=True)
 class DatasetSpec:
-    dataset_cls: type
+    dataset_cls: type | None
     input_shape: tuple[int, int, int]
     num_classes: int = 10
+    target_type: str = "single_label"
+    official_splits: bool = False
 
 
 DATASETS = {
     "mnist": DatasetSpec(datasets.MNIST, (1, 28, 28)),
     "fashion_mnist": DatasetSpec(datasets.FashionMNIST, (1, 28, 28)),
     "cifar10": DatasetSpec(datasets.CIFAR10, (3, 32, 32)),
+    "chestmnist": DatasetSpec(
+        dataset_cls=None,
+        input_shape=(1, 28, 28),
+        num_classes=14,
+        target_type="multi_label_binary",
+        official_splits=True,
+    ),
 }
 
 
@@ -57,7 +67,11 @@ class VisionDataModule(pl.LightningDataModule):
 
     @property
     def info(self) -> dict[str, object]:
-        return {"input_shape": self.spec.input_shape, "num_classes": self.spec.num_classes}
+        return {
+            "input_shape": self.spec.input_shape,
+            "num_classes": self.spec.num_classes,
+            "target_type": self.spec.target_type,
+        }
 
     def _transform(self, train: bool = False):
         items: list[object] = []
@@ -157,10 +171,41 @@ class VisionDataModule(pl.LightningDataModule):
         return transforms.Compose(items)
 
     def prepare_data(self) -> None:
+        if self.spec.official_splits:
+            _MedMNISTDataset(self.name, self.data_dir, "train", download=self.download)
+            _MedMNISTDataset(self.name, self.data_dir, "val", download=self.download)
+            _MedMNISTDataset(self.name, self.data_dir, "test", download=self.download)
+            return
         self.spec.dataset_cls(self.data_dir, train=True, download=self.download)
         self.spec.dataset_cls(self.data_dir, train=False, download=self.download)
 
     def setup(self, stage: str | None = None) -> None:
+        if self.spec.official_splits:
+            if stage in {None, "fit"}:
+                self.train_data = _MedMNISTDataset(
+                    self.name,
+                    self.data_dir,
+                    "train",
+                    transform=self._transform(train=True),
+                    download=self.download,
+                )
+                self.val_data = _MedMNISTDataset(
+                    self.name,
+                    self.data_dir,
+                    "val",
+                    transform=self._transform(train=False),
+                    download=self.download,
+                )
+            if stage in {None, "test", "predict"}:
+                self.test_data = _MedMNISTDataset(
+                    self.name,
+                    self.data_dir,
+                    "test",
+                    transform=self._transform(train=False),
+                    download=self.download,
+                )
+            return
+
         if stage in {None, "fit"}:
             full = self.spec.dataset_cls(self.data_dir, train=True, transform=None)
             val_size = int(len(full) * self.val_split)
@@ -232,7 +277,46 @@ def normalization_stats(dataset_name: str) -> tuple[tuple[float, ...], tuple[flo
         return (0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261)
     if dataset_name == "fashion_mnist":
         return (0.2860,), (0.3530,)
+    if dataset_name == "chestmnist":
+        return (0.5,), (0.5,)
     return (0.1307,), (0.3081,)
+
+
+class _MedMNISTDataset(Dataset):
+    def __init__(
+        self,
+        name: str,
+        root: str,
+        split: str,
+        transform=None,
+        download: bool = True,
+    ) -> None:
+        super().__init__()
+        try:
+            import medmnist
+            from medmnist import INFO
+        except ImportError as exc:
+            raise RuntimeError(
+                "MedMNIST datasets require the 'medmnist' package. "
+                "Install project dependencies with uv before using ChestMNIST."
+            ) from exc
+
+        Path(root).expanduser().mkdir(parents=True, exist_ok=True)
+        info = INFO[name]
+        dataset_cls = getattr(medmnist, info["python_class"])
+        self.dataset = dataset_cls(
+            split=split,
+            root=root,
+            transform=transform,
+            download=download,
+        )
+
+    def __len__(self) -> int:
+        return len(self.dataset)
+
+    def __getitem__(self, index: int):
+        x, y = self.dataset[index]
+        return x, torch.as_tensor(y, dtype=torch.float32).flatten()
 
 
 def _translate_tuple(value: object) -> tuple[float, float] | None:

@@ -1,0 +1,63 @@
+id: mnist_rnn_val_acc
+title: MNIST RNN Validation Accuracy
+status: active
+
+objective: >
+  Maximize MNIST validation accuracy using recurrent sequence models while preserving validation-only model selection.
+
+success_criteria:
+  primary_metric: selected_val_acc
+  target: maximize selected validation accuracy
+  selection_metric: val/acc
+  test_policy: >
+    Select checkpoints by validation metrics only. Evaluate test metrics only for
+    final milestone candidates or explicitly approved confirmation runs.
+
+constraints:
+  dataset: mnist
+  external_data: false
+  max_epochs: null
+  seeds_for_final_confirmation: 3
+
+current_best:
+  experiment: 001_rnn_architecture_search
+  selected_val_acc_mean: 0.993667
+  selected_val_acc_std: 0.000816
+  selected_val_acc_best: 0.994667
+  selected_val_loss_mean: 0.023111
+  test_acc_mean: 0.992700
+  test_acc_std: 0.000748
+  test_acc_best: 0.993500
+  test_loss_mean: 0.024245
+  config:
+    model: gru
+    hidden_dim: 384
+    num_layers: 1
+    bidirectional: false
+    pooling: last
+    sequence_axis: columns
+    dropout: 0.2
+    optimizer: adamw
+    lr: 0.003
+    weight_decay: 0.001
+    scheduler: cosine
+    label_smoothing: 0
+    batch_size: 512
+    augmentation: true
+    gradient_clip_val: 2
+
+wandb:
+  entity: tsilva
+  project: dlab
+  artifact_policy: durable_remote
+  run_project: mnist_rnn_val_acc
+
+checkpoint_policy:
+  durable_store: wandb_artifacts
+  keep:
+    - best validation checkpoint for completed experiments
+    - all final confirmation seed checkpoints
+    - diagnostically important failed checkpoints
+  discard:
+    - routine epoch checkpoints
+    - superseded exploratory checkpoints without unique research value

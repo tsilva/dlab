@@ -4,12 +4,14 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import torch
 from omegaconf import OmegaConf
 
 from src.utils.wandb import (
     _artifact_aliases,
     _build_s3_artifact_uri,
     _class_names,
+    _log_example_table,
     _log_run_artifact,
     _wandb_artifact_storage_uri,
     log_wandb_post_run,
@@ -262,3 +264,72 @@ def test_wandb_post_run_summary_includes_run_target(monkeypatch) -> None:
     assert fake_run.summary["target/gpu_requested"] == "L4"
     assert fake_run.summary["target/modal_function_call_id"] == "fc-123"
     assert fake_run.summary["finished"] is True
+
+
+def test_log_example_table_handles_multilabel_targets(monkeypatch) -> None:
+    logged = {}
+
+    class FakeTable:
+        def __init__(self, columns: list[str]) -> None:
+            self.columns = columns
+            self.rows = []
+
+        def add_data(self, *values: object) -> None:
+            self.rows.append(values)
+
+    class FakeWandb:
+        Table = FakeTable
+        Image = staticmethod(lambda image: ("image", tuple(image.shape)))
+
+    class FakeRun:
+        def log(self, payload: dict) -> None:
+            logged.update(payload)
+
+    class FakeModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.param = torch.nn.Parameter(torch.zeros(()))
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return torch.tensor(
+                [
+                    [2.0, -2.0, 0.0],
+                    [-2.0, 2.0, 2.0],
+                ],
+                device=x.device,
+            )
+
+    x = torch.zeros(2, 1, 4, 4)
+    y = torch.tensor([[1.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
+    datamodule = SimpleNamespace(
+        setup=lambda stage: None,
+        val_dataloader=lambda: iter([(x, y)]),
+        val_data=SimpleNamespace(classes=["a", "b", "c"]),
+    )
+    lit_module = SimpleNamespace(model=FakeModel(), device=torch.device("cpu"))
+    cfg = OmegaConf.create(
+        {
+            "task": "classification",
+            "dataset": {"name": "chestmnist", "target_type": "multi_label_binary"},
+            "loss": {"threshold": 0.5},
+            "wandb": {"table_max_examples": 2, "table_split": "val"},
+        }
+    )
+    monkeypatch.setitem(sys.modules, "wandb", FakeWandb)
+
+    _log_example_table(cfg, FakeRun(), lit_module, datamodule)
+
+    table = logged["examples/predictions"]
+    assert table.columns == [
+        "index",
+        "image",
+        "labels",
+        "predictions",
+        "positive_labels",
+        "predicted_positive_labels",
+        "mean_probability",
+    ]
+    assert table.rows[0][2] == [1, 0, 1]
+    assert table.rows[0][3] == [1, 0, 1]
+    assert table.rows[0][4] == ["a", "c"]
+    assert table.rows[1][5] == ["b", "c"]

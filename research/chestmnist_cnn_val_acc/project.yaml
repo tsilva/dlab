@@ -1,0 +1,42 @@
+id: chestmnist_cnn_val_acc
+title: ChestMNIST CNN validation accuracy
+status: active
+
+objective: >
+  Find the best CNN-like ChestMNIST classifier by validation accuracy while
+  keeping the held-out test set unused until a final candidate is selected.
+
+success_criteria:
+  primary_metric: val/acc
+  target: maximize
+  selection_metric: val/acc
+  test_policy: >
+    Do not use test metrics for architecture, hyperparameter, threshold, or
+    checkpoint selection. Run test evaluation only after selecting the
+    validation winner.
+
+constraints:
+  dataset: chestmnist
+  external_data: false
+  max_epochs: 30
+  seeds_for_final_confirmation: 3
+  hardware_target: ssh/beast2 RTX 2060
+  metric_definition: >
+    Multi-label binary accuracy from thresholded sigmoid probabilities, averaged
+    across the 14 labels. Each run records the scalar decision threshold in
+    loss.threshold.
+
+wandb:
+  entity: tsilva
+  project: dlab
+  artifact_policy: durable_remote
+
+checkpoint_policy:
+  durable_store: wandb_artifacts
+  keep:
+    - best validation-accuracy checkpoint for completed confirmation runs
+    - all final confirmation seed checkpoints
+    - diagnostically important failed checkpoints
+  discard:
+    - routine epoch checkpoints
+    - superseded exploratory checkpoints without unique research value

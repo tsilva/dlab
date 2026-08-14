@@ -1,0 +1,4 @@
+interface:
+  display_name: "Autoresearch"
+  short_description: "Run disciplined ML research loops"
+  default_prompt: "Use $autoresearch to run a validation-first ML research track and publish the winning artifacts."

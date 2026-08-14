@@ -62,46 +62,38 @@ normally `s3://wandb`. The code expands it with the research-track id from
 `CHECKPOINT_BUCKET_URI` also support `{research_track_id}` or
 `<research_track_id>` placeholders.
 
-Expected repo-local `.env` keys for local runs and local SkyPilot launch
-wrappers:
+Private local values are declared in `.keyenv.toml` and stored in macOS
+Keychain:
 
 ```text
 AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
-AWS_S3_ENDPOINT_URL
-AWS_REGION
-CHECKPOINT_BUCKET_URI
 WANDB_API_KEY
 ```
 
-Set `CHECKPOINT_BUCKET_URI=s3://wandb` in local `.env`. `WANDB_ARTIFACT_STORAGE_URI`
+Keep only non-secret settings such as `AWS_S3_ENDPOINT_URL`, `AWS_REGION`, and
+`CHECKPOINT_BUCKET_URI=s3://wandb` in local `.env`. `WANDB_ARTIFACT_STORAGE_URI`
 can override `CHECKPOINT_BUCKET_URI` when a run needs a different bucket/base.
 The code loads only `WANDB_*`, `AWS_*`, and
 `CHECKPOINT_BUCKET_URI` from `.env`, and exported shell variables take
-precedence. Without either URI, W&B artifact behavior remains the normal direct
-upload path.
+precedence, so credentials injected by `keyenv run -- ...` remain authoritative.
+Without either URI, W&B artifact behavior remains the normal direct upload path.
 
-For SkyPilot launches, load `.env` only in the local shell that invokes
-`sky launch`, then pass non-secret config with `--env` and secret values with
-`--secret`. Do not mount `.env`, copy it into the workdir, source it inside the
-task YAML, or bake it into an image/container.
+For SkyPilot launches, inject the Keychain credentials only into the local
+`sky launch` process, then pass non-secret config with `--env` and secret values
+with `--secret`. Do not mount `.env`, copy it into the workdir, source it inside
+the task YAML, or bake it into an image/container.
 
 Preferred SkyPilot launch pattern:
 
 ```bash
-(
-  set -a
-  . ./.env
-  set +a
-
-  sky launch -c <cluster-name> -y <task.yaml> \
-    --env AWS_REGION \
-    --env AWS_S3_ENDPOINT_URL \
-    --env CHECKPOINT_BUCKET_URI \
-    --secret AWS_ACCESS_KEY_ID \
-    --secret AWS_SECRET_ACCESS_KEY \
-    --secret WANDB_API_KEY
-)
+keyenv run -- sky launch -c <cluster-name> -y <task.yaml> \
+  --env AWS_REGION \
+  --env AWS_S3_ENDPOINT_URL \
+  --env CHECKPOINT_BUCKET_URI \
+  --secret AWS_ACCESS_KEY_ID \
+  --secret AWS_SECRET_ACCESS_KEY \
+  --secret WANDB_API_KEY
 ```
 
 Smoke validation:
