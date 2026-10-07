@@ -1,8 +1,10 @@
-<div align="center">
+<p align="center">
   <img src="./logo.png" alt="dlab" width="256" />
-
-  **🧪 Fast, reproducible deep learning experiments from local runs to cloud sweeps 🧪**
-</div>
+  <br />
+  <!-- repo-tagline:start -->
+  <strong>🧪 Run reproducible deep learning experiments locally and in cloud 🧪</strong>
+  <!-- repo-tagline:end -->
+</p>
 
 `dlab` is a small research framework for running controlled deep learning experiments from Hydra configs. It is built for local training loops, sequential sweeps, CSV-backed metrics, checkpoints, markdown reports, and notebook-based analysis.
 
