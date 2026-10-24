@@ -1,5 +1,5 @@
 ---
-name: autoresearch
+name: dlab_autoresearch
 description: End-to-end ML research execution workflow for validation-first experiment tracks, GPU sweeps, W&B/SkyPilot-backed training, candidate confirmation, test audit discipline, artifact packaging, and Hugging Face publication. Use when the user asks Codex to start or continue a research track, maximize a metric, run sweeps until a best config is found, evaluate best candidates, publish trained models, or turn experiment results into reusable model artifacts.
 ---
 
