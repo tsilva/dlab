@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "exceptions": {
+    "dependencies.sources": {
+      "pyproject.toml#tool.uv.exclude-newer-package.hydra-core": "User approved on 2026-10-28: hydra-core==1.3.8 only, after source, wheel and provenance review, to fix GHSA-wf6j-7hvr-gr93. Fixed cutoff 2026-10-25T13:42:23Z; all other packages remain age-gated."
+    }
+  }
+}
