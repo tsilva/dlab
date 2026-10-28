@@ -15,9 +15,14 @@ The repo currently covers MNIST, Fashion-MNIST, and CIFAR-10 with classifiers an
 ```bash
 git clone git@github.com:tsilva/dlab.git
 cd dlab
-uv sync --locked --no-config --exclude-newer '7 days' --extra dev
+uv sync --locked --no-config --exclude-newer '7 days' --exclude-newer-package=hydra-core=2026-10-25T13:42:23Z --extra dev
 keyenv doctor
 ```
+
+Hydra is pinned to 1.3.8 with an explicitly approved security exception to the
+seven-day release-age policy. Its fixed artifact cutoff admits only the reviewed
+release; all other packages retain the seven-day gate. The exception becomes
+unnecessary on November 1, 2026 at 13:42:23 UTC.
 
 Run a debug training pass:
 

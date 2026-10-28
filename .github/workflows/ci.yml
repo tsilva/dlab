@@ -24,20 +24,20 @@ jobs:
           enable-cache: true
 
       - name: Install the locked environment
-        run: uv sync --locked --no-config --exclude-newer '7 days' --extra dev
+        run: uv sync --locked --no-config --exclude-newer '7 days' --exclude-newer-package=hydra-core=2026-10-25T13:42:23Z --extra dev
 
       - name: Check remote requirements resolution
         run: >-
-          uv pip compile requirements.txt --no-config --exclude-newer '7 days'
+          uv pip compile requirements.txt --no-config --exclude-newer '7 days' --exclude-newer-package=hydra-core=2026-10-25T13:42:23Z
           --python-version 3.12 --output-file ${{ runner.temp }}/dlab-requirements.txt
 
       - name: Lint
-        run: uv run --locked --no-config --exclude-newer '7 days' ruff check .
+        run: uv run --locked --no-config --exclude-newer '7 days' --exclude-newer-package=hydra-core=2026-10-25T13:42:23Z ruff check .
 
       - name: Test
-        run: uv run --locked --no-config --exclude-newer '7 days' pytest -q
+        run: uv run --locked --no-config --exclude-newer '7 days' --exclude-newer-package=hydra-core=2026-10-25T13:42:23Z pytest -q
 
       - name: Audit locked dependencies
         run: >-
-          uv audit --locked --no-config --exclude-newer '7 days'
+          uv audit --locked --no-config --exclude-newer '7 days' --exclude-newer-package=hydra-core=2026-10-25T13:42:23Z
           --python-platform x86_64-manylinux_2_28
