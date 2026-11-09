@@ -12,3 +12,4 @@ setuptools>=84.2.1
 torch>=2.15.0
 torchvision>=0.29.2
 urllib3>=2.8.0
+tornado>=6.6

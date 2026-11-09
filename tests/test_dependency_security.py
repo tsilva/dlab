@@ -1,4 +1,4 @@
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
 import onnx
 import torch
@@ -7,11 +7,11 @@ from packaging.version import Version
 
 def test_runtime_dependencies_are_outside_known_vulnerable_ranges() -> None:
     minimum_versions = {
-        "gitpython": "3.1.58",
         "jupyterlab": "4.5.10",
         "onnx": "1.22.0",
         "pillow": "12.3.0",
         "setuptools": "83.0.0",
+        "tornado": "6.6",
         "torch": "2.13.0",
         "torchvision": "0.28.0",
         "urllib3": "2.7.0",
@@ -19,6 +19,13 @@ def test_runtime_dependencies_are_outside_known_vulnerable_ranges() -> None:
 
     for package, minimum in minimum_versions.items():
         assert Version(version(package)) >= Version(minimum)
+
+    # GitPython is optional because the current W&B release no longer installs it.
+    try:
+        gitpython = version("gitpython")
+    except PackageNotFoundError:
+        return
+    assert Version(gitpython) >= Version("3.1.58")
 
 
 def test_legitimate_torch_jit_and_onnx_models_remain_valid() -> None:
