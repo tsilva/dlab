@@ -1,6 +1,6 @@
 aiohttp>=3.14.5
 certifi>=2026.10.23
-dnspython>=2.9.1
+dnspython>=2.9.2
 filelock>=4.2.6
 gitpython>=3.2.1
 guardrails-ai!=0.10.1
