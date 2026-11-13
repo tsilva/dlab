@@ -13,3 +13,6 @@ torch>=2.15.0
 torchvision>=0.29.2
 urllib3>=2.8.0
 tornado>=6.6
+
+# Patched selector complexity bounds for Beautiful Soup consumers.
+soupsieve>=4.0

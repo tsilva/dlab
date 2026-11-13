@@ -51,6 +51,7 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.uv]
 exclude-newer = "7 days"
 constraint-dependencies = [
+  "soupsieve>=4.0",
   "mistralai!=2.4.6",
   "tornado>=6.6",
   "guardrails-ai!=0.10.1",
