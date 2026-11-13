@@ -16,7 +16,6 @@ The repo currently covers MNIST, Fashion-MNIST, and CIFAR-10 with classifiers an
 git clone git@github.com:tsilva/dlab.git
 cd dlab
 uv sync --locked --no-config --exclude-newer '7 days' --exclude-newer-package=hydra-core=2026-10-25T13:42:23Z --extra dev
-keyenv doctor
 ```
 
 Hydra is pinned to 1.3.8 with an explicitly approved security exception to the
@@ -27,13 +26,11 @@ unnecessary on November 1, 2026 at 13:42:23 UTC.
 Run a debug training pass:
 
 ```bash
-keyenv run -- uv run python train.py experiment=mnist_mlp trainer=debug dataset.num_workers=0
+uv run python train.py experiment=mnist_mlp trainer=debug dataset.num_workers=0
 ```
 
-Private local credentials declared in `.keyenv.toml` live in macOS Keychain.
-Launch any command that needs W&B or R2 credentials through `keyenv run -- ...`;
-Python continues to access them through `os.environ`. Non-secret runtime settings
-may remain in `.env`.
+Configure W&B and optional R2 credentials in the process environment through your
+chosen credential provider. Local training also supports offline logging.
 
 ## Commands
 

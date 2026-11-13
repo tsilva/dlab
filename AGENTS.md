@@ -62,8 +62,7 @@ normally `s3://wandb`. The code expands it with the research-track id from
 `CHECKPOINT_BUCKET_URI` also support `{research_track_id}` or
 `<research_track_id>` placeholders.
 
-Private local values are declared in `.keyenv.toml` and stored in macOS
-Keychain:
+W&B and optional R2 clients consume these process environment variables:
 
 ```text
 AWS_ACCESS_KEY_ID
@@ -76,18 +75,17 @@ Keep only non-secret settings such as `AWS_S3_ENDPOINT_URL`, `AWS_REGION`, and
 can override `CHECKPOINT_BUCKET_URI` when a run needs a different bucket/base.
 The code loads only `WANDB_*`, `AWS_*`, and
 `CHECKPOINT_BUCKET_URI` from `.env`, and exported shell variables take
-precedence, so credentials injected by `keyenv run -- ...` remain authoritative.
+precedence. Keep credentials out of committed configuration.
 Without either URI, W&B artifact behavior remains the normal direct upload path.
 
-For SkyPilot launches, inject the Keychain credentials only into the local
-`sky launch` process, then pass non-secret config with `--env` and secret values
-with `--secret`. Do not mount `.env`, copy it into the workdir, source it inside
+For authorized SkyPilot launches, pass non-secret config with `--env` and
+separately configured secret values with `--secret`. Do not mount `.env`, copy it into the workdir, source it inside
 the task YAML, or bake it into an image/container.
 
 Preferred SkyPilot launch pattern:
 
 ```bash
-keyenv run -- sky launch -c <cluster-name> -y <task.yaml> \
+sky launch -c <cluster-name> -y <task.yaml> \
   --env AWS_REGION \
   --env AWS_S3_ENDPOINT_URL \
   --env CHECKPOINT_BUCKET_URI \

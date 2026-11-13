@@ -96,3 +96,4 @@ reports/*
 Thumbs.db
 .idea/
 .vscode/
+/.internal/
