@@ -1,5 +1,16 @@
 # dlab Agent Notes
 
+## Agent service access
+
+Before an agent command accesses W&B, R2, Hugging Face, or a remote training
+provider, verify an approved Runbox profile for that operation and use it
+externally. This checkout's inventory-only binding grants no execution.
+Report missing access before launching or publishing. The normal CLI accepts
+user-supplied application settings.
+
+The installed Modal client uses gRPC outside the supported proxy transport.
+RunPod Flash and SkyPilot require a reviewed dlab route before agent launches.
+
 ## W&B Dashboards
 
 This repo uses curated W&B saved views for monitoring instead of relying on the
@@ -78,23 +89,9 @@ The code loads only `WANDB_*`, `AWS_*`, and
 precedence. Keep credentials out of committed configuration.
 Without either URI, W&B artifact behavior remains the normal direct upload path.
 
-For authorized SkyPilot launches, pass non-secret config with `--env` and
-separately configured secret values with `--secret`. Do not mount `.env`, copy it into the workdir, source it inside
-the task YAML, or bake it into an image/container.
+Keep `.env` out of SkyPilot workdirs, task YAML and images.
 
-Preferred SkyPilot launch pattern:
-
-```bash
-sky launch -c <cluster-name> -y <task.yaml> \
-  --env AWS_REGION \
-  --env AWS_S3_ENDPOINT_URL \
-  --env CHECKPOINT_BUCKET_URI \
-  --secret AWS_ACCESS_KEY_ID \
-  --secret AWS_SECRET_ACCESS_KEY \
-  --secret WANDB_API_KEY
-```
-
-Smoke validation:
+Historical SkyPilot smoke validation:
 
 - 2026-06-18: `sky_dlab_r2_smoke_2060.yaml` succeeded on SkyPilot
   `ssh/beast2` / RTX 2060 with W&B run `afkr0egi`.
